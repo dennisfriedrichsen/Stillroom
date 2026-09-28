@@ -34,11 +34,11 @@ Record each result as ✅ / ❌ / ⚠️ with notes, and keep the filled-in copy
 - [ ] **2.1a** Folders from Photos appear as folder cards, and folders and albums are in the same order as My Albums in Photos (rearrange a few in Photos first to test). *Order matched Photos on 2026‑09‑24, Apple TV HD, tvOS 26.6.* Opening a folder shows the same albums and subfolders as in Photos, and Back returns to the parent. Albums inside folders are not also listed at the top level. Folders that are empty or hold only Shared Albums are hidden.
 - [ ] **2.2** For at least 3 albums, compare the card count with Photos on iPhone or Mac: the card should equal *items − videos*. Note any mismatch: ______
 - [ ] **2.3** Album covers load, including for albums you haven't opened on the Apple TV.
-- [ ] **2.4** Turn on **Diagnostics Overlay** in an album's settings. The Albums header shows "eligible albums: N"; confirm N matches the albums that have photos.
+- [ ] **2.4** Turn on **Diagnostics Overlay** in an album's **Troubleshooting** screen. The Albums header shows "eligible albums: N"; confirm N matches the albums that have photos.
 
 ## 3. Is iCloud loading real? (the key feasibility check)
 
-- [ ] **3.1** Open the large album › **Test iCloud Loading**. Record the summary line: ______
+- [ ] **3.1** Open the large album › **Troubleshooting** › **Test iCloud Loading**. Record the summary line: ______
 - [ ] **3.2** At least some rows say **"iCloud only"** or **"not local"**, which shows that photos not on the device are being tested. If every row says "on device," pick an older, rarely viewed album and repeat.
 - [ ] **3.3** The cloud-only rows show **✓** with a time. Record the median and slowest times: ______
 - [ ] **3.4** Run the probe a second time. Previously downloaded rows may now say "on device" (a system cache). This is expected and purgeable; the app doesn't rely on it.
@@ -79,6 +79,8 @@ Settings: Shuffle on, Loop on, 3‑second slides.
 - [ ] **7.4** Click → controls appear with visible focus. Left/right move focus between buttons. Back hides them; Back again exits.
 - [ ] **7.5** The Loop and Counter buttons in the controls take effect immediately.
 - [ ] **7.6** With Black Bars or Blurred Background, photos of every shape (portrait, landscape, panorama) show whole, with nothing cropped.
+- [ ] **7.7** Album screen, never-played album: focus starts on **Play Slideshow**. Move Right into the settings, down to any row, then press Left: focus returns to Play. From a settings row, press Play/Pause: the slideshow starts at Photo 1.
+- [ ] **7.8** Album screen, album left part way through: focus starts on **Resume from Photo N**, with the progress bar under it and a smaller **Start Over** below. Play/Pause from a settings row resumes at Photo N; Start Over starts at Photo 1.
 
 ## 8. Network loss and recovery
 
@@ -110,7 +112,7 @@ Settings: Shuffle on, Loop on, 3‑second slides.
 
 Use an album with many vertical photos. Turn on the diagnostics overlay. For each style, watch at least 20 slides.
 
-- [ ] **12.1** The Vertical Photos setting shows "(best for older Apple TVs)" next to Blurred Background, and on an Apple TV HD or 4K (1st gen) it is the default.
+- [ ] **12.1** The Vertical Photos setting shows "(Recommended)" next to Blurred Background on an Apple TV HD or 4K (1st gen), and next to Slow Pan on later models; the recommended style is the default. Choosing another style adds one line to the description naming the recommended style.
 - [ ] **12.2** **Blurred Background:** the side bars show a soft, darkened version of the photo; slide changes crossfade without a black flash.
 - [ ] **12.3** **Slow Pan:** vertical photos fill the screen and move smoothly (no stutter); portraits end with the face in view. Play/Pause freezes the pan. Note memory versus budget and whether it ever stops to load: ______
 - [ ] **12.4** **Smart Crop:** faces are inside the frame (not cut off at the top). Count bad crops out of 20: ______

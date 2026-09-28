@@ -1,7 +1,7 @@
 import StillroomCore
 import SwiftUI
 
-/// Album details, slideshow options, and the Play button.
+/// Album details, the Play button, and the slideshow settings (shared by every album).
 struct AlbumDetailView: View {
     let album: AlbumSummary
 
@@ -13,12 +13,15 @@ struct AlbumDetailView: View {
     @AppStorage(SettingsKey.loop) private var loop = true
     @AppStorage(SettingsKey.showCounter) private var showCounter = true
     @AppStorage(SettingsKey.albumOrder) private var albumOrder = AlbumOrder.album
-    @AppStorage(SettingsKey.showDiagnostics) private var showDiagnostics = false
     @AppStorage(SettingsKey.verticalStyle) private var verticalStyle = VerticalPhotoStyle.recommended
     @FocusState private var playFocused: Bool
 
     private var current: AlbumSummary {
         library.album(id: album.id) ?? album
+    }
+
+    private var resume: ResumePoint? {
+        recents.entry(for: current.id)?.resume
     }
 
     var body: some View {
@@ -31,32 +34,7 @@ struct AlbumDetailView: View {
                     .font(.title2.bold())
                 Text("\(photoCountText(current.photoCount)) · videos are not included")
                     .foregroundStyle(.secondary)
-                if let resume = recents.entry(for: current.id)?.resume {
-                    Button {
-                        router.request = SlideshowRequest(album: current, resume: resume)
-                    } label: {
-                        Label("Resume from Photo \((resume.position + 1).formatted())", systemImage: "play.fill")
-                            .frame(minWidth: 420)
-                    }
-                    .focused($playFocused)
-                    ResumeProgressBar(fraction: resume.fraction)
-                        .frame(width: 420)
-                    Button {
-                        router.request = SlideshowRequest(album: current, resume: nil)
-                    } label: {
-                        Label("Start Over", systemImage: "arrow.counterclockwise")
-                            .frame(minWidth: 420)
-                    }
-                } else {
-                    Button {
-                        router.request = SlideshowRequest(album: current, resume: nil)
-                    } label: {
-                        Label("Play Slideshow", systemImage: "play.fill")
-                            .frame(minWidth: 420)
-                    }
-                    .disabled(current.photoCount == 0)
-                    .focused($playFocused)
-                }
+                playButtons
             }
             // Full-height focus section: pressing left from any settings row lands
             // on Play, not just from rows level with the button.
@@ -65,7 +43,7 @@ struct AlbumDetailView: View {
             .focusSection()
 
             Form {
-                Section("Playback") {
+                Section {
                     Toggle("Shuffle", isOn: $shuffle)
                     ChoicePicker("Order", selection: $albumOrder, options: AlbumOrder.allCases) { $0.label }
                     .disabled(shuffle)
@@ -73,6 +51,9 @@ struct AlbumDetailView: View {
                     ChoicePicker("Slide Duration", selection: $slideSeconds, options: SettingsDefault.durations) {
                         "\($0) seconds"
                     }
+                    Toggle("Show “Photo 12 of 600”", isOn: $showCounter)
+                } header: {
+                    Text("Slideshow Settings · All Albums")
                 }
                 Section {
                     ChoicePicker(
@@ -81,38 +62,96 @@ struct AlbumDetailView: View {
                         options: VerticalPhotoStyle.allCases,
                         label: styleLabel
                     )
-                } header: {
-                    Text("Vertical Photos")
                 } footer: {
                     Text(verticalFooter)
                 }
-                Section("Display") {
-                    Toggle("Show “Photo 12 of 600”", isOn: $showCounter)
-                    Toggle("Diagnostics Overlay", isOn: $showDiagnostics)
-                }
-                Section("Troubleshooting") {
-                    NavigationLink("Test iCloud Loading") {
-                        CloudProbeView(album: current)
+                Section {
+                    NavigationLink("Troubleshooting") {
+                        TroubleshootingView(album: current)
                     }
                 }
             }
         }
         .padding(60)
         .defaultFocus($playFocused, true)
+        // Play/Pause on the remote starts (or resumes) from anywhere on this screen,
+        // including the settings rows.
+        .onPlayPauseCommand {
+            guard current.photoCount != 0 else { return }
+            play(resume: resume)
+        }
+    }
+
+    @ViewBuilder
+    private var playButtons: some View {
+        if let resume {
+            Button {
+                play(resume: resume)
+            } label: {
+                Label("Resume from Photo \((resume.position + 1).formatted())", systemImage: "play.fill")
+                    .frame(minWidth: 420)
+            }
+            .buttonStyle(.borderedProminent)
+            .focused($playFocused)
+            ResumeProgressBar(fraction: resume.fraction)
+                .frame(width: 420)
+            Button {
+                play(resume: nil)
+            } label: {
+                Label("Start Over", systemImage: "arrow.counterclockwise")
+                    .font(.callout)
+            }
+            .buttonStyle(.bordered)
+        } else {
+            Button {
+                play(resume: nil)
+            } label: {
+                Label("Play Slideshow", systemImage: "play.fill")
+                    .frame(minWidth: 420)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(current.photoCount == 0)
+            .focused($playFocused)
+        }
+    }
+
+    private func play(resume: ResumePoint?) {
+        router.request = SlideshowRequest(album: current, resume: resume)
     }
 
     private func styleLabel(_ style: VerticalPhotoStyle) -> String {
-        style == .blurredBackground ? "\(style.label) (best for older Apple TVs)" : style.label
+        style == .recommended ? "\(style.label) (Recommended)" : style.label
     }
 
     private var verticalFooter: String {
-        var text = verticalStyle.explanation
-        if DeviceClass.current.isOlderModel, verticalStyle != .blurredBackground {
-            text += " This Apple TV is an older model; Blurred Background runs most smoothly on it."
-        } else if !DeviceClass.current.isOlderModel, verticalStyle == .blurredBackground {
-            text += " Older Apple TVs are the Apple TV HD and Apple TV 4K (1st generation)."
+        let recommended = VerticalPhotoStyle.recommended
+        guard verticalStyle != recommended else { return verticalStyle.explanation }
+        return "\(verticalStyle.explanation) \(recommended.label) is recommended for this Apple TV."
+    }
+}
+
+/// Tools for checking iCloud loading and playback on this Apple TV.
+struct TroubleshootingView: View {
+    let album: AlbumSummary
+    @AppStorage(SettingsKey.showDiagnostics) private var showDiagnostics = false
+
+    var body: some View {
+        Form {
+            Section {
+                NavigationLink("Test iCloud Loading") {
+                    CloudProbeView(album: album)
+                }
+            } footer: {
+                Text("Checks 12 photos from “\(album.title)” and reports how long the ones not on this Apple TV take to download.")
+            }
+            Section {
+                Toggle("Diagnostics Overlay", isOn: $showDiagnostics)
+            } footer: {
+                Text("Shows loading, memory, and network details on the Albums screen and during slideshows.")
+            }
         }
-        return text
+        .navigationTitle("Troubleshooting")
+        .padding(.horizontal, 300)
     }
 }
 

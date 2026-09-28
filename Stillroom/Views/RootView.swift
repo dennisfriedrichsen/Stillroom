@@ -13,7 +13,9 @@ struct RootView: View {
 
     var body: some View {
         #if DEBUG
-        if DemoImageProvider.isEnabled {
+        if DemoAlbumScreen.isEnabled {
+            DemoAlbumScreen()
+        } else if DemoImageProvider.isEnabled {
             SlideshowScreen(
                 album: AlbumSummary(id: "demo", title: "Demo", photoCount: DemoImageProvider.count, keyAssetID: nil),
                 order: .album,

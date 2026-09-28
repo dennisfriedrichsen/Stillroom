@@ -44,18 +44,18 @@ Stillroom has no accounts and no server of its own. Photos are read through Appl
 ## Using Stillroom
 
 - **Albums screen:** albums are arranged in the same folders as in Photos. Folders and albums appear in the same custom order as in Photos (PhotoKit's unsorted order; Apple doesn't document that it matches Photos, but it did on an Apple TV HD with tvOS 26.6 on 2026‑09‑24). A folder card shows how many albums it contains (subfolders included) and opens its own grid. Empty folders, and folders holding only Shared Albums, are hidden. Each album card shows the album name, cover, and number of eligible still photos. Albums appear immediately; counts and covers fill in over a few seconds ("counting photos…"), which took about 9 s for 157 albums on an Apple TV HD. The cover is the album's key photo from Photos. Key photos are slow to look up on older Apple TVs (20–34 s for 157 albums on an Apple TV HD), so the first photo stands in until the key photo arrives in the background; key photos are saved between launches, so after the first run covers are right immediately. The lookup pauses during a slideshow. Live Photos count and are shown as stills; videos are excluded from the count and the slideshow.
-- **Album screen:** Play, plus options (saved between launches): Shuffle, Order, Loop, Slide Duration (default 8 s), Vertical Photos, the "Photo 12 of 600" counter, and the diagnostics overlay.
+- **Album screen:** **Play Slideshow**, or **Resume from Photo N** with a progress bar if you left the album part way through, and a smaller **Start Over** below it. Focus starts on Play/Resume, pressing Left from any setting returns to it, and the remote's Play/Pause button starts or resumes the slideshow from anywhere on the screen. The settings beside it apply to **every album** and are saved between launches: Shuffle, Order, Loop, Slide Duration (default 8 s), the "Photo 12 of 600" counter, and Vertical Photos. **Troubleshooting** at the bottom opens Test iCloud Loading and the diagnostics overlay.
 - **Vertical Photos** (how photos that don't fill a 16:9 TV are shown):
 
 | Style | What you see | Cost |
 |---|---|---|
-| **Blurred Background** *(best for older Apple TVs; default on Apple TV HD and 4K 1st gen)* | Whole photo, with a blurred, darkened copy filling the sides | Lowest: one extra 64‑pixel image per photo |
-| **Slow Pan** *(default on Apple TV 4K 2nd gen and later)* | Vertical photos fill the width and slowly pan, ending on the face or subject found by Vision (or the upper third if none is found). The pan pauses with Play/Pause and is turned off by Reduce Motion | Highest: pan images are up to twice as tall as they are wide (~30 MB each at 1080p), so fewer are buffered (2 ahead, 1 behind), plus Vision detection |
+| **Blurred Background** *(recommended and default on Apple TV HD and 4K 1st gen)* | Whole photo, with a blurred, darkened copy filling the sides | Lowest: one extra 64‑pixel image per photo |
+| **Slow Pan** *(recommended and default on Apple TV 4K 2nd gen and later)* | Vertical photos fill the width and slowly pan, ending on the face or subject found by Vision (or the upper third if none is found). The pan pauses with Play/Pause and is turned off by Reduce Motion | Highest: pan images are up to twice as tall as they are wide (~30 MB each at 1080p), so fewer are buffered (2 ahead, 1 behind), plus Vision detection |
 | **Smart Crop** | Vertical photos fill the screen, cropped around the face or subject (about two thirds of the height is cut) | Moderate: Vision detection; the stored image is screen-sized |
 | **Side by Side** | Two vertical photos that are next to each other in the playback order share a slide ("Photos 127–128 of 600") | Two downloads per slide; buffers 4 photos ahead |
 | **Black Bars** | Whole photo, black bars | Lowest |
 
-  Photos narrower than 0.9:1 (width:height) count as vertical. Landscape photos are shown whole in every style (with the blurred background unless Black Bars is chosen). **Test iCloud Loading** checks 12 photos spread across the album and reports which ones are already on the Apple TV and how long the others take to download.
+  Photos narrower than 0.9:1 (width:height) count as vertical. Landscape photos are shown whole in every style (with the blurred background unless Black Bars is chosen). The setting marks the recommended style for your Apple TV with "(Recommended)". **Troubleshooting › Test iCloud Loading** checks 12 photos spread across the album and reports which ones are already on the Apple TV and how long the others take to download.
 - **During a slideshow (Siri Remote):**
 
 | Input | Action |
@@ -103,6 +103,8 @@ xcodebuild -workspace Stillroom.xcworkspace -scheme Stillroom -destination 'gene
 #### Simulator demo mode (Debug builds only)
 
 The tvOS Simulator has no iCloud Photos library. To check the slideshow screens, pass the launch argument `-demoSlideshow` (Scheme › Run › Arguments). The app then plays 60 generated, numbered images with random delays, and every 7th image fails on purpose so you can see the retry and stall states. This mode is compiled out of Release builds and never touches PhotoKit.
+
+To check the album screen, pass `-demoAlbumScreen` for an album that hasn't been played, or `-demoAlbumScreen -demoResume` for one left at photo 128 of 392. Play shows a placeholder instead of a slideshow, and the demo uses its own Recently Played list, so your real one isn't changed.
 
 #### App icon
 
@@ -258,7 +260,7 @@ Swift concurrency runs `async` code on a thread pool with one thread per CPU cor
 
 ### Diagnostics and privacy
 
-- **Diagnostics overlay** (turn on in album settings): session, cycle, position, eligible album count, displayed / buffered / loading / pending / failed / skipped / removed counts, decoded memory versus budget, retries, stale callbacks, network state, and the last few requests with attempt number, duration, and outcome.
+- **Diagnostics overlay** (turn on in an album's **Troubleshooting**; it applies everywhere): session, cycle, position, eligible album count, displayed / buffered / loading / pending / failed / skipped / removed counts, decoded memory versus budget, retries, stale callbacks, network state, and the last few requests with attempt number, duration, and outcome.
 - **Logging:** `os.Logger`, subsystem `com.friedrichsenweb.Stillroom`, categories `library`, `loading`, and `playback`. Asset identifiers are logged only as short one-way hashes; image contents are never logged. Logs never leave the device. To stream logs from a paired Apple TV, use Console.app and filter on that subsystem.
 - **On-device log file:** the same info-level messages (launch with app version, model and tvOS version; each request, load time and failure; each wait, display, stall, pause and navigation) are also written to `Library/Caches/Diagnostics/stillroom.log` in the app's container. It rotates at 400 KB (one previous file is kept), lives in purgeable Caches, and is never uploaded. After a problem, copy it off the paired Apple TV without restarting the app:
 

@@ -36,15 +36,15 @@ enum VerticalPhotoStyle: String, CaseIterable, Identifiable, Sendable {
     var explanation: String {
         switch self {
         case .blurredBackground:
-            "The whole photo, with a blurred copy filling the sides. Lightest on older Apple TVs."
+            "The whole photo, with a blurred copy filling the sides."
         case .slowPan:
-            "Vertical photos fill the screen and slowly pan toward the face or subject. Uses the most memory and processing."
+            "Fills the screen and slowly pans to the face or subject. Uses the most memory."
         case .smartCrop:
-            "Vertical photos fill the screen, cropped around the face or subject. Parts of the photo aren’t shown."
+            "Fills the screen, cropped around the face or subject. Part of the photo is cut off."
         case .sideBySide:
             "Two vertical photos next to each other share a slide."
         case .blackBars:
-            "The whole photo with black bars at the sides."
+            "The whole photo, with black bars at the sides."
         }
     }
 

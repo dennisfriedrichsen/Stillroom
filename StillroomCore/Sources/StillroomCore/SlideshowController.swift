@@ -111,13 +111,7 @@ public final class SlideshowController {
     /// read it from a `TimelineView` to drive motion such as panning. Freezes
     /// while paused and holds at the full duration while the next slide loads.
     public var slideElapsed: Duration {
-        if let timerStartedAt {
-            return min(settings.slideDuration, scheduler.now - timerStartedAt)
-        }
-        if let remainingSlideTime {
-            return settings.slideDuration - remainingSlideTime
-        }
-        return phase == .showing ? .zero : settings.slideDuration
+        slideTimer.elapsed(of: settings.slideDuration) ?? (phase == .showing ? .zero : settings.slideDuration)
     }
 
     /// How long playback has been waiting for the current target slide, or nil
@@ -133,14 +127,11 @@ public final class SlideshowController {
     private let bufferConfiguration: ImageBuffer.Configuration
     private let targetPixelSize: PixelSize
     private let seedSource: () -> UInt64
+    private let slideTimer: SlideTimer
 
     private var buffer: ImageBuffer?
     private var sequence: PlaybackSequence?
     private var sessionID = 0
-    private var slideTimer: ScheduledWork?
-    private var timerStartedAt: Duration?
-    /// Time left on the slide timer when paused.
-    private var remainingSlideTime: Duration?
     private var noticeTimer: ScheduledWork?
     private var pendingSnapshot: (ids: [AssetID], pairable: Set<AssetID>)?
     private var wasPlayingBeforeBackground = false
@@ -168,6 +159,7 @@ public final class SlideshowController {
         self.bufferConfiguration = bufferConfiguration
         self.settings = settings
         self.seedSource = seedSource
+        slideTimer = SlideTimer(scheduler: scheduler)
     }
 
     // MARK: Session lifecycle
@@ -231,8 +223,7 @@ public final class SlideshowController {
 
     /// Ends the slideshow, cancelling timers and every outstanding request.
     public func stop() {
-        slideTimer?.cancel()
-        slideTimer = nil
+        slideTimer.cancel()
         noticeTimer?.cancel()
         noticeTimer = nil
         buffer?.onEvent = nil
@@ -251,8 +242,6 @@ public final class SlideshowController {
         targetAttempt = 0
         loadingSince = nil
         loadingKey = nil
-        remainingSlideTime = nil
-        timerStartedAt = nil
         pendingSnapshot = nil
         notice = nil
         lastCycleReport = nil
@@ -271,13 +260,7 @@ public final class SlideshowController {
         guard sequence != nil, !isPaused else { return }
         isPaused = true
         StillroomLog.playback.info("Paused at photo \(targetPosition + 1)")
-        if let slideTimer, let timerStartedAt {
-            let elapsed = scheduler.now - timerStartedAt
-            remainingSlideTime = max(.zero, settings.slideDuration - elapsed)
-            slideTimer.cancel()
-        }
-        slideTimer = nil
-        timerStartedAt = nil
+        slideTimer.pause()
     }
 
     public func resume() {
@@ -423,7 +406,7 @@ public final class SlideshowController {
 
     private func advance(navigation: Navigation) {
         guard var sequence else { return }
-        cancelSlideTimer()
+        slideTimer.cancel()
         let step = sequence.advance()
         self.sequence = sequence
         switch step {
@@ -469,7 +452,7 @@ public final class SlideshowController {
             return
         }
         self.sequence = sequence
-        cancelSlideTimer()
+        slideTimer.cancel()
         phase = .loading
         targetChanged(.userBackward)
     }
@@ -623,7 +606,7 @@ public final class SlideshowController {
         isRetryingTarget = false
         targetAttempt = 0
         phase = .showing
-        remainingSlideTime = nil
+        slideTimer.cancel()
         refreshWindow()
         startSlideTimerIfNeeded()
         publishDiagnostics()
@@ -685,34 +668,22 @@ public final class SlideshowController {
     // MARK: Slide timer
 
     private func startSlideTimerIfNeeded() {
-        guard phase == .showing, !isPaused, slideTimer == nil else { return }
-        let duration = remainingSlideTime ?? settings.slideDuration
-        remainingSlideTime = nil
+        guard phase == .showing, !isPaused, !slideTimer.isRunning else { return }
         let session = sessionID
-        timerStartedAt = scheduler.now - (settings.slideDuration - duration)
-        slideTimer = scheduler.schedule(after: duration) { [weak self] in
+        slideTimer.start(duration: settings.slideDuration) { [weak self] in
             self?.slideTimerFired(session: session)
         }
     }
 
     private func slideTimerFired(session: Int) {
         guard session == sessionID, phase == .showing, !isPaused else { return }
-        slideTimer = nil
-        timerStartedAt = nil
         advance(navigation: .automatic)
-    }
-
-    private func cancelSlideTimer() {
-        slideTimer?.cancel()
-        slideTimer = nil
-        timerStartedAt = nil
-        remainingSlideTime = nil
     }
 
     // MARK: Helpers
 
     private func fail(_ message: String) {
-        cancelSlideTimer()
+        slideTimer.cancel()
         buffer?.reset()
         phase = .failed(message)
         StillroomLog.playback.error("Playback failed: \(message)")

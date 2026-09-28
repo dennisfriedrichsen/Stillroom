@@ -165,7 +165,8 @@ Stillroom.xcworkspace
 ├── Stillroom/                    tvOS app target (SwiftUI + PhotoKit + a little UIKit)
 │   ├── App/StillroomApp.swift
 │   ├── Photos/                   ① authorization + album access, ② PhotoKit image loading, iCloud sync of Recently Played
-│   │   ├── PhotoLibraryModel.swift    authorization, availability, albums, snapshots, change observer
+│   │   ├── PhotoLibraryModel.swift    authorization, availability, album scan, key photos, change observer
+│   │   ├── AlbumFetcher.swift         synchronous PhotoKit fetches (album list, counts, snapshots); run via BlockingWork
 │   │   ├── PhotoKitRequest.swift      callback → async bridge (degraded/final, cancel, exactly-once)
 │   │   ├── PhotoKitImageProvider.swift  iCloud download, error mapping, screen-sized decode
 │   │   ├── ThumbnailLoader.swift       album covers (bounded in-memory NSCache)
@@ -179,6 +180,8 @@ Stillroom.xcworkspace
     ├── PlaybackSequence.swift    ③ the complete album order, shuffle permutations, history
     ├── ImageBuffer.swift         ② bounded rolling buffer: priorities, concurrency, memory, retries
     ├── SlideshowController.swift ③ explicit playback state machine
+    ├── SlideTimer.swift          slide countdown: idle, running, or paused with time left
+    ├── CycleTracker.swift        per-cycle shown / skipped / removed photos and the cycle report
     ├── Scheduler.swift           injectable clock/timers (real vs. manual in tests)
     ├── ImageProviding.swift      provider protocol, AssetID, LoadedImage, failure kinds
     └── Diagnostics.swift         os.Logger categories, counters, cycle report
@@ -202,6 +205,8 @@ Stillroom.xcworkspace
 ```
 
 Every input (slide timer, image completion, remote press, network change) arrives on the main actor and goes through this one state machine, so there are no competing timers or callbacks. The slide timer starts only when the target image is actually on screen, and pause simply cancels it and remembers the time left.
+
+The controller owns two small helpers, neither of which decides anything about playback on its own: **`SlideTimer`** holds the countdown as one state (idle, running, or paused with the time left), and **`CycleTracker`** records which photos were shown, skipped, or found removed this cycle, keeps skipped and removed photos off their slides, and builds the cycle report. Every transition stays in `SlideshowController`.
 
 ### Loading and memory
 
@@ -274,7 +279,7 @@ xcrun devicectl device copy from --device "Living Room (3)" --domain-type appDat
 
 ## Tests
 
-`StillroomCore/Tests` — 52 tests in 7 suites (Swift Testing) with a `FakeImageProvider` whose requests stay pending until the test completes, fails, or cancels them, and a `ManualScheduler` that makes time deterministic.
+`StillroomCore/Tests` — 57 tests in 9 suites (Swift Testing) with a `FakeImageProvider` whose requests stay pending until the test completes, fails, or cancels them, and a `ManualScheduler` that makes time deterministic.
 
 | Requirement | Tests |
 |---|---|
@@ -289,11 +294,13 @@ xcrun devicectl device copy from --device "Living Room (3)" --domain-type appDat
 | Buffer bounds | `concurrencyBounded`, `byteBudget`, `neededPreemptsPrefetch`, `eviction`, `memoryPressure` |
 | Lifecycle, album edits, loop off | `backgroundLifecycle`, `stopCancels`, `albumEditDeferred`, `finishesWithoutLoop`, `endsWithoutLoop`, `upcomingBounded` |
 | Timers under thread-pool starvation | `timersSurvivePoolStarvation`, `cancellation` |
+| Slide timer pause, resume, and cancel | `pauseAndResume`, `startWhileRunning`, `cancelForgetsPause` |
+| Per-cycle skip / remove / show bookkeeping | `skipAndRemove`, `readmitThenShow` |
 | Resume where a slideshow stopped, including shuffle order and pairs | `resumeAtPhoto`, `resumeShuffleSeed`, `seekResumes`, `seekIntoPair` |
 | Recently Played merging between Apple TVs | `newestWins`, `removals`, `limitsAndPruning` |
 | Side-by-side pairs and pan timing | `greedyPairs`, `stableBackNavigation`, `pairedShuffleIsPermutation`, `windowsAroundPair`, `pairWaitsForBoth`, `skipHalfOfPair`, `slideElapsed` |
 
-The PhotoKit layer (`PhotoKitRequest`, `PhotoKitImageProvider`, `PhotoLibraryModel`) has no automated tests: the simulator has no iCloud library to test it against. It is covered by the device checklist.
+The PhotoKit layer (`PhotoKitRequest`, `PhotoKitImageProvider`, `PhotoLibraryModel`, `AlbumFetcher`) has no automated tests: the simulator has no iCloud library to test it against. It is covered by the device checklist.
 
 ---
 

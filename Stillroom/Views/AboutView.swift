@@ -12,8 +12,10 @@ struct AboutView: View {
                 Text("Requires tvOS 18 or later.")
                 Text(
                     "Privacy: photos are read through Apple’s Photos framework and kept only in memory while they’re "
-                        + "on screen or about to be. Stillroom saves no copies, has no accounts, and sends nothing "
-                        + "to any server. Diagnostics stay on this Apple TV."
+                        + "on screen or about to be. Small covers of albums you’ve played are kept on this Apple TV "
+                        + "for the Top Shelf. Recently Played and where you left off sync to your other Apple TVs "
+                        + "through your iCloud account; this includes photo identifiers and positions, never the "
+                        + "photos. Stillroom has no accounts and no server of its own. Diagnostics stay on this Apple TV."
                 )
             }
             .foregroundStyle(.secondary)

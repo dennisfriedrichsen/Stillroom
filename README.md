@@ -5,39 +5,24 @@ A native Apple TV app that plays **complete** slideshows of ordinary iCloud Phot
 - Pick an album with the Siri Remote and play every still photo in it, in album order or shuffled.
 - Photos load a few at a time from iCloud while you watch. The playback sequence is always the whole album, never "whatever happens to be downloaded."
 - A **Recently Played** row on the home screen, like the TV app's Continue Watching: a slideshow you left part way through shows a progress bar and resumes at the same photo (in the same shuffle order). Hold Select on a card to start over or remove it. The same albums appear in the Apple TV **Top Shelf** when Stillroom is in the Home screen's top row, and the list **syncs through iCloud** to other Apple TVs on the same Apple Account (tvOS 18.2 or later), so you can stop in one room and continue in another. *Not yet verified across two Apple TVs; see checklist section 13.*
-- Nothing is exported, mirrored, or saved by the app, and no Mac or iPhone needs to stay on.
 
-> **Status:** the playback logic is covered by 49 automated tests using a fake image provider. On a physical Apple TV HD (tvOS 26.6), album listing works, photos stored only in iCloud download through public PhotoKit, and **a full 392-photo album played through with every photo downloaded and displayed**. Network loss, shuffle cycles, long runs, and the new vertical-photo styles have not been verified on the device yet. See [Verification status](#verification-status) and the [device checklist](docs/DEVICE_TEST_CHECKLIST.md).
+Stillroom is available on the App Store for Apple TV.
+
+> **Verification:** the playback logic is covered by 52 automated tests, and complete playback of a large album has been confirmed on a physical Apple TV. See [Verification status](#verification-status) for what has and hasn't been checked on a device.
 
 ---
 
-## Feasibility (checked before building)
+## Privacy
 
-Sources checked on 2026‑09‑22: the tvOS 27.0 SDK headers in Xcode 27.0 (`Photos.framework`), and Apple's documentation for PhotoKit, `PHImageManager`, `PHImageRequestOptions.isNetworkAccessAllowed`, `PHPhotoLibrary.requestAuthorization(for:handler:)`, and `PHAssetCollection.fetchAssetCollections(with:subtype:options:)`.
+Stillroom has no accounts and no server of its own. Photos are read through Apple's Photos framework (PhotoKit), which downloads them from your iCloud Photos library when they aren't on the Apple TV.
 
-| Capability | API | tvOS availability | Notes |
-|---|---|---|---|
-| Framework | PhotoKit (`Photos`) | tvOS 10+ | Apple describes it as giving access to photos "on the person's device and in iCloud." |
-| Authorization | `PHPhotoLibrary.requestAuthorization(for: .readWrite)` | tvOS 14+ | Needs `NSPhotoLibraryUsageDescription`. No entitlement or paid capability required. |
-| Album enumeration | `PHAssetCollection.fetchAssetCollections(with: .album, subtype: .albumRegular, …)` | tvOS 10+ | Ordinary user albums. Shared Albums are a separate subtype (`.albumCloudShared`) and are excluded. |
-| Asset enumeration | `PHAsset.fetchAssets(in:options:)` | tvOS 10+ | |
-| iCloud download | `PHImageManager.requestImage` with `isNetworkAccessAllowed = true`, `progressHandler` | tvOS 10+ | Documented: "If true, and the requested image is not stored on the local device, Photos downloads the image from iCloud." |
-| Degraded vs. final results | `PHImageResultIsDegradedKey`, `PHImageResultIsInCloudKey`, `PHImageCancelledKey`, `PHImageErrorKey` | tvOS 10+ | |
-| Availability | `PHPhotoLibrary.unavailabilityReason`, availability observer | tvOS 13+ | |
-| Change notifications | `PHPhotoLibraryChangeObserver` | tvOS 10+ | |
-| Not on tvOS | Limited-library picker, upload-job APIs | — | Irrelevant here. `PHAuthorizationStatus.limited` is handled, but tvOS has no picker to change the selection. |
-
-**Conclusion:** there is no documented platform limitation that prevents this design. All required APIs are public and marked available on tvOS. Private APIs, Apple Account credentials, and scraping are not used.
-
-**Must still be validated on a real Apple TV** (the tvOS Simulator has no iCloud Photos library):
-
-1. That `.albumRegular` returns your iCloud Photos albums on tvOS, with correct photo counts.
-2. That `requestImage` with network access actually downloads photos that aren't on the Apple TV, in a 300 GB library on a device with 32 GB of storage. Use **Test iCloud Loading** in the app. *Confirmed on 2026‑09‑24 on an Apple TV HD, tvOS 26.6: 11 of 11 sampled cloud-only photos downloaded, median 0.8 s.*
-3. That PhotoKit's unsorted album fetch matches the album's order in Photos (see [Ordering](#ordering)).
-4. Download times and memory behaviour on your specific hardware and network.
-5. The Settings paths quoted in the app's permission messages.
-
-On the built-in slideshow looping over its first ~10 photos: that behaviour is consistent with a player that treats the locally cached subset as the whole album, but it is **not confirmed**. Stillroom is designed so that failure mode can't happen, whatever the cause.
+| Data | Where it's kept | Leaves the Apple TV? |
+|---|---|---|
+| Slideshow photos | In memory only, while on screen or about to be. No slideshow image is written to disk by the app; PhotoKit's own caches are managed by the system | No |
+| Top Shelf covers: small JPEGs of the albums in Recently Played | The app group's `Library/Caches`, replaced as the list changes | No |
+| Recently Played and resume points: Photos identifiers, position, shuffle seed, and dates, never photos | App preferences, and iCloud key-value storage on tvOS 18.2 or later | Yes, to your own iCloud account, so your other Apple TVs can continue where you stopped |
+| Settings and saved album-cover identifiers | App preferences | No |
+| Diagnostics log | `Library/Caches/Diagnostics` (purgeable) | No |
 
 ---
 
@@ -53,93 +38,6 @@ On the built-in slideshow looping over its first ~10 photos: that behaviour is c
 **Why tvOS 18:** PhotoKit's required pieces need only tvOS 14 or earlier. The deployment target is set by the app's own code: the Observation framework (`@Observable`, tvOS 17), `Synchronization.Mutex` (tvOS 18), and current SwiftUI focus and command APIs. tvOS 18 runs on every Apple TV that can run tvOS 17, so raising the target costs no hardware, and it matches the iOS 18 baseline used across these projects.
 
 **Older Apple TVs:** tvOS 27 dropped the Apple TV HD and the **Apple TV 4K (1st generation, model A1842)**, so tvOS 26 is the last version they run. Because the minimum is tvOS 18, Stillroom runs on tvOS 26 with no changes; the deployment target is a minimum, not the version you build with. Building with the tvOS 27 SDK in Xcode 27 still installs on a tvOS 26 device. Don't raise the deployment target above 26 while you use one of these models. To check your model, see Settings › General › About, and compare the model number with Apple's [Identify your Apple TV model](https://support.apple.com/en-us/101605).
-
----
-
-## Build
-
-```bash
-git clone <repository-url> ~/src/github/dennisfriedrichsen/Stillroom
-cd ~/src/github/dennisfriedrichsen/Stillroom
-open Stillroom.xcworkspace
-```
-
-Open the **workspace**, not the `.xcodeproj`. The workspace includes the local `StillroomCore` package, so ⌘U runs its tests from the `Stillroom` scheme.
-
-The app has no third-party dependencies.
-
-### App icon
-
-The app uses the selected Stillroom icon: two interwoven frames with a saturated violet-to-cyan gradient. The approved source is `design/app-icon-options/stillroom-b-vibrant.png`. Regenerate the Home screen (400×240 and 800×480) and App Store (1280×768) assets from the repository root with `swift scripts/export-app-icon.swift`. The static Top Shelf images (shown when nothing has been played yet) come from the same source; regenerate them with `swift scripts/export-top-shelf.swift`.
-
-The artwork is flattened into the back layer with a transparent front layer to preserve the approved design; it does not have separate foreground parallax. The app name and Top Shelf artwork remain unchanged.
-
-Command-line equivalents:
-
-```bash
-# Playback-logic tests on the Mac (fastest)
-cd StillroomCore && swift test
-```
-
-```bash
-# Same tests on the tvOS Simulator
-xcodebuild -workspace Stillroom.xcworkspace -scheme Stillroom -destination 'platform=tvOS Simulator,name=Apple TV 4K (3rd generation)' test
-```
-
-```bash
-# Compile for a real Apple TV without signing (checks the device SDK)
-xcodebuild -workspace Stillroom.xcworkspace -scheme Stillroom -destination 'generic/platform=tvOS' CODE_SIGNING_ALLOWED=NO build
-```
-
-### Simulator demo mode (Debug builds only)
-
-The tvOS Simulator has no iCloud Photos library. To check the slideshow screens, pass the launch argument `-demoSlideshow` (Scheme › Run › Arguments). The app then plays 60 generated, numbered images with random delays, and every 7th image fails on purpose so you can see the retry and stall states. This mode is compiled out of Release builds and never touches PhotoKit.
-
----
-
-## Install on your Apple TV
-
-### 1. Choose how to sign
-
-You do **not** need a paid membership to run Stillroom on your own Apple TV.
-
-| | Free Apple Account ("Personal Team") | Apple Developer Program ($99/year) |
-|---|---|---|
-| Run on your own Apple TV from Xcode | Yes | Yes |
-| How long an install keeps working | **7 days.** The provisioning profile expires; after that the app won't launch until you build and run again from Xcode. | 1 year (development profile) |
-| Limits | Up to 3 devices and 10 App IDs, both expiring after 7 days; up to 3 of your apps per device | 100 devices of each type per year |
-| TestFlight / App Store | No | Yes |
-| Capabilities this app needs | Photos permission (no entitlement) an **App Group** (`group.com.friedrichsenweb.Stillroom`) shared with the Top Shelf extension, and **iCloud key-value storage** for syncing Recently Played between Apple TVs. Automatic signing creates the group; if you change the bundle identifier, change the group in `Config/*.entitlements` and `StillroomShared/TopShelfFeed.swift` to match | Same |
-
-Limits are from Apple's [membership comparison](https://developer.apple.com/support/compare-memberships/) page, checked 2026‑09‑22. With a free account, plan to reinstall from Xcode about once a week. The paid program mainly buys a 1‑year install and TestFlight, which lets the Apple TV install updates itself.
-
-### 2. Set up signing in Xcode
-
-1. Xcode › Settings › Accounts › **+** › Apple Account, and sign in. A free account appears as "*Your Name* (Personal Team)."
-2. In the project navigator select **Stillroom** › target **Stillroom** › **Signing & Capabilities**.
-3. Keep **Automatically manage signing** on, and choose your team.
-4. If Xcode says the bundle identifier `com.friedrichsenweb.Stillroom` is unavailable, change it to something unique, such as `com.<yourname>.Stillroom`.
-
-### 3. Pair the Apple TV with Xcode (one time)
-
-Apple TV 4K has no USB port, so pairing happens over the network. tvOS has **no Developer Mode switch**; pairing alone enables development.
-
-1. Put the Mac and the Apple TV on the same network.
-2. On the Apple TV, open **Settings › Remotes and Devices › Remote App and Devices**, and stay on that screen.
-3. In Xcode, open **Window › Devices and Simulators** (called *Device Hub* in newer Xcode versions). Your Apple TV appears under Discovered; select it and click **Pair**.
-4. Enter the code shown on the TV. Xcode may take a few minutes to prepare the device for development the first time.
-
-### 4. Run
-
-1. In the Xcode toolbar choose the **Stillroom** scheme and your Apple TV as the destination.
-2. Press ⌘R. The first install to a new device can take a while.
-3. On first launch Stillroom explains why it needs Photos access. Choose **Continue**, then choose **Allow access to all Photos**. The tvOS 26 prompt also offers a **Select** (limited access) option; with that, Stillroom sees only the photos you picked, so albums would look incomplete.
-4. After that, Stillroom appears on the Home screen and you can launch it without Xcode, until the profile expires (7 days with a free account).
-
-**Troubleshooting**
-- *"Untrusted developer" or the app won't open:* rebuild and run from Xcode; free-account profiles expire after 7 days.
-- *Apple TV not listed in Xcode:* stay on the Remote App and Devices screen, check both are on the same network and subnet, and try toggling Wi‑Fi on the Mac.
-- *No albums:* confirm iCloud Photos is on for the current Apple TV user, and give a new sign-in time to sync.
 
 ---
 
@@ -168,6 +66,93 @@ Apple TV 4K has no USB port, so pairing happens over the network. tvOS has **no 
 | Back / Menu | Hide the controls, or exit the slideshow |
 
 - **If a photo can't load:** the current photo stays on screen with a small "Loading…" or "retrying…" note. After automatic retries fail, Stillroom stops and offers **Retry**, **Skip Photo**, or **Exit**. Skipped photos are listed in the summary at the end of the cycle.
+
+---
+
+## Development
+
+### Build
+
+```bash
+git clone <repository-url> ~/src/github/dennisfriedrichsen/Stillroom
+cd ~/src/github/dennisfriedrichsen/Stillroom
+open Stillroom.xcworkspace
+```
+
+Open the **workspace**, not the `.xcodeproj`. The workspace includes the local `StillroomCore` package, so ⌘U runs its tests from the `Stillroom` scheme.
+
+The app has no third-party dependencies.
+
+Command-line equivalents:
+
+```bash
+# Playback-logic tests on the Mac (fastest)
+cd StillroomCore && swift test
+```
+
+```bash
+# Same tests on the tvOS Simulator
+xcodebuild -workspace Stillroom.xcworkspace -scheme Stillroom -destination 'platform=tvOS Simulator,name=Apple TV 4K (3rd generation)' test
+```
+
+```bash
+# Compile for a real Apple TV without signing (checks the device SDK)
+xcodebuild -workspace Stillroom.xcworkspace -scheme Stillroom -destination 'generic/platform=tvOS' CODE_SIGNING_ALLOWED=NO build
+```
+
+#### Simulator demo mode (Debug builds only)
+
+The tvOS Simulator has no iCloud Photos library. To check the slideshow screens, pass the launch argument `-demoSlideshow` (Scheme › Run › Arguments). The app then plays 60 generated, numbered images with random delays, and every 7th image fails on purpose so you can see the retry and stall states. This mode is compiled out of Release builds and never touches PhotoKit.
+
+#### App icon
+
+The app uses the selected Stillroom icon: two interwoven frames with a saturated violet-to-cyan gradient. The approved source is `design/app-icon-options/stillroom-b-vibrant.png`. Regenerate the Home screen (400×240 and 800×480) and App Store (1280×768) assets from the repository root with `swift scripts/export-app-icon.swift`. The static Top Shelf images (shown when nothing has been played yet) come from the same source; regenerate them with `swift scripts/export-top-shelf.swift`.
+
+The artwork is flattened into the back layer with a transparent front layer to preserve the approved design; it does not have separate foreground parallax. The app name and Top Shelf artwork remain unchanged.
+
+### Run a development build on your Apple TV
+
+#### 1. Choose how to sign
+
+You do **not** need a paid membership to run Stillroom on your own Apple TV.
+
+| | Free Apple Account ("Personal Team") | Apple Developer Program ($99/year) |
+|---|---|---|
+| Run on your own Apple TV from Xcode | Yes | Yes |
+| How long an install keeps working | **7 days.** The provisioning profile expires; after that the app won't launch until you build and run again from Xcode. | 1 year (development profile) |
+| Limits | Up to 3 devices and 10 App IDs, both expiring after 7 days; up to 3 of your apps per device | 100 devices of each type per year |
+| TestFlight / App Store | No | Yes |
+| Capabilities this app needs | Photos permission (no entitlement) an **App Group** (`group.com.friedrichsenweb.Stillroom`) shared with the Top Shelf extension, and **iCloud key-value storage** for syncing Recently Played between Apple TVs. Automatic signing creates the group; if you change the bundle identifier, change the group in `Config/*.entitlements` and `StillroomShared/TopShelfFeed.swift` to match | Same |
+
+Limits are from Apple's [membership comparison](https://developer.apple.com/support/compare-memberships/) page, checked 2026‑09‑22. With a free account, plan to reinstall from Xcode about once a week. The paid program mainly buys a 1‑year install and TestFlight, which lets the Apple TV install updates itself.
+
+#### 2. Set up signing in Xcode
+
+1. Xcode › Settings › Accounts › **+** › Apple Account, and sign in. A free account appears as "*Your Name* (Personal Team)."
+2. In the project navigator select **Stillroom** › target **Stillroom** › **Signing & Capabilities**.
+3. Keep **Automatically manage signing** on, and choose your team.
+4. If Xcode says the bundle identifier `com.friedrichsenweb.Stillroom` is unavailable, change it to something unique, such as `com.<yourname>.Stillroom`.
+
+#### 3. Pair the Apple TV with Xcode (one time)
+
+Apple TV 4K has no USB port, so pairing happens over the network. tvOS has **no Developer Mode switch**; pairing alone enables development.
+
+1. Put the Mac and the Apple TV on the same network.
+2. On the Apple TV, open **Settings › Remotes and Devices › Remote App and Devices**, and stay on that screen.
+3. In Xcode, open **Window › Devices and Simulators** (called *Device Hub* in newer Xcode versions). Your Apple TV appears under Discovered; select it and click **Pair**.
+4. Enter the code shown on the TV. Xcode may take a few minutes to prepare the device for development the first time.
+
+#### 4. Run
+
+1. In the Xcode toolbar choose the **Stillroom** scheme and your Apple TV as the destination.
+2. Press ⌘R. The first install to a new device can take a while.
+3. On first launch Stillroom explains why it needs Photos access. Choose **Continue**, then choose **Allow access to all Photos**. The tvOS 26 prompt also offers a **Select** (limited access) option; with that, Stillroom sees only the photos you picked, so albums would look incomplete.
+4. After that, Stillroom appears on the Home screen and you can launch it without Xcode, until the profile expires (7 days with a free account).
+
+**Troubleshooting**
+- *"Untrusted developer" or the app won't open:* rebuild and run from Xcode; free-account profiles expire after 7 days.
+- *Apple TV not listed in Xcode:* stay on the Remote App and Devices screen, check both are on the same network and subnet, and try toggling Wi‑Fi on the Mac.
+- *No albums:* confirm iCloud Photos is on for the current Apple TV user, and give a new sign-in time to sync.
 
 ---
 
@@ -223,7 +208,7 @@ Every input (slide timer, image completion, remote press, network change) arrive
 - **Bounds:** at most 2 concurrent requests. The look-ahead is 6 photos (about 48 s of slides at 8 s each), 3 in Slow Pan (larger images) and 8 in Side by Side (about 4 pairs), plus 2 previous (1 in Slow Pan). The decoded-memory budget is exactly that window at its largest image size: ~83 MB at 1080p and ~330 MB at 4K for the normal styles; up to ~180 MB at 1080p for Slow Pan. New prefetches aren't started if they could exceed it; the image playback is waiting for always loads. The needed image can pre-empt a prefetch for a request slot.
 - **Failures found early:** a photo that fails while being prefetched doesn't interrupt the current slide. When playback reaches it, it gets a fresh round of retries before the Retry/Skip panel appears.
 - **Eviction and cancellation:** anything outside the window is evicted and its request cancelled on every move, on album change, and when leaving playback. Backgrounding cancels prefetches; a memory warning drops everything except the current and on-screen images and shrinks the window.
-- **No persistence:** the app writes no image data to disk. PhotoKit's own caches are system-managed and purgeable; the app never assumes they hold anything, and it doesn't use preheating (`PHCachingImageManager`) as a signal that anything has downloaded.
+- **No slideshow persistence:** the app writes no slideshow image data to disk; the only images it writes are the small Top Shelf covers (see [Privacy](#privacy)). PhotoKit's own caches are system-managed and purgeable; the app never assumes they hold anything, and it doesn't use preheating (`PHCachingImageManager`) as a signal that anything has downloaded.
 
 ### Threading rule: no blocking work on Swift's cooperative pool
 
@@ -274,7 +259,7 @@ Swift concurrency runs `async` code on a thread pool with one thread per CPU cor
 ### Diagnostics and privacy
 
 - **Diagnostics overlay** (turn on in album settings): session, cycle, position, eligible album count, displayed / buffered / loading / pending / failed / skipped / removed counts, decoded memory versus budget, retries, stale callbacks, network state, and the last few requests with attempt number, duration, and outcome.
-- **Logging:** `os.Logger`, subsystem `com.friedrichsenweb.Stillroom`, categories `library`, `loading`, and `playback`. Asset identifiers are logged only as short one-way hashes; image contents are never logged. Nothing leaves the device. To stream logs from a paired Apple TV, use Console.app and filter on that subsystem.
+- **Logging:** `os.Logger`, subsystem `com.friedrichsenweb.Stillroom`, categories `library`, `loading`, and `playback`. Asset identifiers are logged only as short one-way hashes; image contents are never logged. Logs never leave the device. To stream logs from a paired Apple TV, use Console.app and filter on that subsystem.
 - **On-device log file:** the same info-level messages (launch with app version, model and tvOS version; each request, load time and failure; each wait, display, stall, pause and navigation) are also written to `Library/Caches/Diagnostics/stillroom.log` in the app's container. It rotates at 400 KB (one previous file is kept), lives in purgeable Caches, and is never uploaded. After a problem, copy it off the paired Apple TV without restarting the app:
 
 ```bash
@@ -287,7 +272,7 @@ xcrun devicectl device copy from --device "Living Room (3)" --domain-type appDat
 
 ## Tests
 
-`StillroomCore/Tests` — 45 tests (Swift Testing) with a `FakeImageProvider` whose requests stay pending until the test completes, fails, or cancels them, and a `ManualScheduler` that makes time deterministic.
+`StillroomCore/Tests` — 52 tests in 7 suites (Swift Testing) with a `FakeImageProvider` whose requests stay pending until the test completes, fails, or cancels them, and a `ManualScheduler` that makes time deterministic.
 
 | Requirement | Tests |
 |---|---|
@@ -300,8 +285,10 @@ xcrun devicectl device copy from --device "Living Room (3)" --domain-type appDat
 | Network recovery | `networkRecovery` |
 | Stale callbacks | `staleCallbackFromPreviousSession` (including a photo shared by both albums), `staleCallbackAfterNavigation`, `staleAfterReset` |
 | Buffer bounds | `concurrencyBounded`, `byteBudget`, `neededPreemptsPrefetch`, `eviction`, `memoryPressure` |
-| Lifecycle, album edits, loop off | `backgroundLifecycle`, `stopCancels`, `albumEditDeferred`, `finishesWithoutLoop` |
+| Lifecycle, album edits, loop off | `backgroundLifecycle`, `stopCancels`, `albumEditDeferred`, `finishesWithoutLoop`, `endsWithoutLoop`, `upcomingBounded` |
 | Timers under thread-pool starvation | `timersSurvivePoolStarvation`, `cancellation` |
+| Resume where a slideshow stopped, including shuffle order and pairs | `resumeAtPhoto`, `resumeShuffleSeed`, `seekResumes`, `seekIntoPair` |
+| Recently Played merging between Apple TVs | `newestWins`, `removals`, `limitsAndPruning` |
 | Side-by-side pairs and pan timing | `greedyPairs`, `stableBackNavigation`, `pairedShuffleIsPermutation`, `windowsAroundPair`, `pairWaitsForBoth`, `skipHalfOfPair`, `slideElapsed` |
 
 The PhotoKit layer (`PhotoKitRequest`, `PhotoKitImageProvider`, `PhotoLibraryModel`) has no automated tests: the simulator has no iCloud library to test it against. It is covered by the device checklist.
@@ -312,8 +299,8 @@ The PhotoKit layer (`PhotoKitRequest`, `PhotoKitImageProvider`, `PhotoLibraryMod
 
 | Check | Where | Result |
 |---|---|---|
-| Core logic tests (49) | macOS, `swift test` | ✅ Pass (repeated runs) |
-| Core logic tests (49) | tvOS 27.0 Simulator, `xcodebuild test` (34 earlier also on tvOS 26.5) | ✅ Pass |
+| Core logic tests (52) | macOS, `swift test` | ✅ Pass (2026‑09‑28) |
+| Core logic tests (52) | tvOS Simulator, `xcodebuild test` | ✅ Pass (2026‑09‑28) |
 | App compiles, Swift 6 language mode | tvOS Simulator SDK and **device** SDK (unsigned) | ✅ Builds with no Swift warnings |
 | Welcome screen and empty-library state | tvOS Simulator (Photos permission granted with `simctl`) | ✅ Rendered |
 | Slideshow UI: letterboxing, counter, diagnostics, "retrying…" indicator, stall panel with focus on Retry | tvOS 27.0 Simulator, `-demoSlideshow` (synthetic images) | ✅ Seen in screenshots |
@@ -329,6 +316,7 @@ The PhotoKit layer (`PhotoKitRequest`, `PhotoKitImageProvider`, `PhotoLibraryMod
 | On-device log file written and copied off with `devicectl` | Apple TV HD (AppleTV5,3), tvOS 26.6 | ✅ |
 | Freeze during Smart Crop playback (both pool threads stuck in Vision) | Apple TV HD, diagnosed from the log file and a live backtrace | ✅ Cause found and fixed; ❌ fix **not yet confirmed** by a long Smart Crop run on the device |
 | Downloading photos that aren't on the device | Apple TV HD (AppleTV5,3), tvOS 26.6, **Test iCloud Loading** | ✅ 12 sampled: 1 on device, 11 not on device; 11/11 downloaded at screen size (median 0.8 s, slowest 2.0 s). This is a 12-photo sample, not a full cycle |
+| Recently Played and resume sync between two Apple TVs | Two physical Apple TVs, tvOS 18.2 or later | ❌ **Not yet verified** (checklist section 13) |
 | Full cycles, network loss, memory, and screen-saver behaviour | Physical Apple TV | ❌ **Not verified** |
 
 No claim about iCloud reliability is made from mocks. Run the [physical-device checklist](docs/DEVICE_TEST_CHECKLIST.md) and record the results there.
@@ -344,3 +332,29 @@ No claim about iCloud reliability is made from mocks. Run the [physical-device c
 - If a photo can only be downloaded very slowly, the slideshow waits for it (with a visible indicator) rather than skipping ahead; the stall watchdog bounds that wait.
 - With a free Apple Account the install stops working after 7 days until you run it from Xcode again.
 - PhotoKit behaviour on a multi-user Apple TV follows the current user's iCloud Photos library.
+
+---
+
+## Appendix: prelaunch feasibility (historical)
+
+*Written before Stillroom was built, to check that the design was possible with public APIs. Kept for reference; for what has since been confirmed on a real Apple TV, see [Verification status](#verification-status).*
+
+Sources checked on 2026‑09‑22: the tvOS 27.0 SDK headers in Xcode 27.0 (`Photos.framework`), and Apple's documentation for PhotoKit, `PHImageManager`, `PHImageRequestOptions.isNetworkAccessAllowed`, `PHPhotoLibrary.requestAuthorization(for:handler:)`, and `PHAssetCollection.fetchAssetCollections(with:subtype:options:)`.
+
+| Capability | API | tvOS availability | Notes |
+|---|---|---|---|
+| Framework | PhotoKit (`Photos`) | tvOS 10+ | Apple describes it as giving access to photos "on the person's device and in iCloud." |
+| Authorization | `PHPhotoLibrary.requestAuthorization(for: .readWrite)` | tvOS 14+ | Needs `NSPhotoLibraryUsageDescription`. No entitlement or paid capability required. |
+| Album enumeration | `PHAssetCollection.fetchAssetCollections(with: .album, subtype: .albumRegular, …)` | tvOS 10+ | Ordinary user albums. Shared Albums are a separate subtype (`.albumCloudShared`) and are excluded. |
+| Asset enumeration | `PHAsset.fetchAssets(in:options:)` | tvOS 10+ | |
+| iCloud download | `PHImageManager.requestImage` with `isNetworkAccessAllowed = true`, `progressHandler` | tvOS 10+ | Documented: "If true, and the requested image is not stored on the local device, Photos downloads the image from iCloud." |
+| Degraded vs. final results | `PHImageResultIsDegradedKey`, `PHImageResultIsInCloudKey`, `PHImageCancelledKey`, `PHImageErrorKey` | tvOS 10+ | |
+| Availability | `PHPhotoLibrary.unavailabilityReason`, availability observer | tvOS 13+ | |
+| Change notifications | `PHPhotoLibraryChangeObserver` | tvOS 10+ | |
+| Not on tvOS | Limited-library picker, upload-job APIs | — | Irrelevant here. `PHAuthorizationStatus.limited` is handled, but tvOS has no picker to change the selection. |
+
+**Conclusion:** there is no documented platform limitation that prevents this design. All required APIs are public and marked available on tvOS. Private APIs, Apple Account credentials, and scraping are not used.
+
+At the time, the checks that needed a real Apple TV (album listing, downloading photos that aren't on the device, album order, download times, and the Settings paths in the app's messages) were listed here; their results are now tracked in [Verification status](#verification-status) and the [device checklist](docs/DEVICE_TEST_CHECKLIST.md).
+
+On the built-in slideshow looping over its first ~10 photos: that behaviour is consistent with a player that treats the locally cached subset as the whole album, but it is **not confirmed**. Stillroom is designed so that failure mode can't happen, whatever the cause.

@@ -189,7 +189,7 @@ struct SlideshowLaunch: View {
     @AppStorage(SettingsKey.shuffle) private var shuffle = false
     @AppStorage(SettingsKey.loop) private var loop = true
     @AppStorage(SettingsKey.albumOrder) private var albumOrder = AlbumOrder.album
-    @AppStorage(SettingsKey.verticalStyle) private var verticalStyle = VerticalPhotoStyle.recommended
+    @AppStorage(SettingsKey.verticalStyle) private var verticalStyle = VerticalPhotoStyle.defaultStyle
 
     var body: some View {
         SlideshowScreen(

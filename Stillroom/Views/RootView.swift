@@ -22,7 +22,7 @@ struct RootView: View {
                 settings: SlideshowSettings(slideDuration: .seconds(6)),
                 style: VerticalPhotoStyle(
                     rawValue: UserDefaults.standard.string(forKey: SettingsKey.verticalStyle) ?? ""
-                ) ?? .recommended
+                ) ?? .defaultStyle
             )
         } else {
             browser

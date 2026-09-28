@@ -112,7 +112,9 @@ Settings: Shuffle on, Loop on, 3‑second slides.
 
 Use an album with many vertical photos. Turn on the diagnostics overlay. For each style, watch at least 20 slides.
 
-- [ ] **12.1** The Vertical Photos setting shows "(Recommended)" next to Blurred Background on an Apple TV HD or 4K (1st gen), and next to Slow Pan on later models; the recommended style is the default. Choosing another style adds one line to the description naming the recommended style.
+*2026‑09‑28, Apple TV HD, tvOS 26.6: all five styles played with no playback or memory problems (owner report). The framing checks below are still open.*
+
+- [ ] **12.1** On a fresh install, Vertical Photos starts on **Slow Pan** (the default on every model), and no style is marked as recommended.
 - [ ] **12.2** **Blurred Background:** the side bars show a soft, darkened version of the photo; slide changes crossfade without a black flash.
 - [ ] **12.3** **Slow Pan:** vertical photos fill the screen and move smoothly (no stutter); portraits end with the face in view. Play/Pause freezes the pan. Note memory versus budget and whether it ever stops to load: ______
 - [ ] **12.4** **Smart Crop:** faces are inside the frame (not cut off at the top). Count bad crops out of 20: ______

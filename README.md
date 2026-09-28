@@ -49,13 +49,13 @@ Stillroom has no accounts and no server of its own. Photos are read through Appl
 
 | Style | What you see | Cost |
 |---|---|---|
-| **Blurred Background** *(recommended and default on Apple TV HD and 4K 1st gen)* | Whole photo, with a blurred, darkened copy filling the sides | Lowest: one extra 64‑pixel image per photo |
-| **Slow Pan** *(recommended and default on Apple TV 4K 2nd gen and later)* | Vertical photos fill the width and slowly pan, ending on the face or subject found by Vision (or the upper third if none is found). The pan pauses with Play/Pause and is turned off by Reduce Motion | Highest: pan images are up to twice as tall as they are wide (~30 MB each at 1080p), so fewer are buffered (2 ahead, 1 behind), plus Vision detection |
+| **Blurred Background** | Whole photo, with a blurred, darkened copy filling the sides | Lowest: one extra 64‑pixel image per photo |
+| **Slow Pan** *(default)* | Vertical photos fill the width and slowly pan, ending on the face or subject found by Vision (or the upper third if none is found). The pan pauses with Play/Pause and is turned off by Reduce Motion | Highest: pan images are up to twice as tall as they are wide (~30 MB each at 1080p), so fewer are buffered (2 ahead, 1 behind), plus Vision detection |
 | **Smart Crop** | Vertical photos fill the screen, cropped around the face or subject (about two thirds of the height is cut) | Moderate: Vision detection; the stored image is screen-sized |
 | **Side by Side** | Two vertical photos that are next to each other in the playback order share a slide ("Photos 127–128 of 600") | Two downloads per slide; buffers 4 photos ahead |
 | **Black Bars** | Whole photo, black bars | Lowest |
 
-  Photos narrower than 0.9:1 (width:height) count as vertical. Landscape photos are shown whole in every style (with the blurred background unless Black Bars is chosen). The setting marks the recommended style for your Apple TV with "(Recommended)". **Troubleshooting › Test iCloud Loading** checks 12 photos spread across the album and reports which ones are already on the Apple TV and how long the others take to download.
+  Photos narrower than 0.9:1 (width:height) count as vertical. Landscape photos are shown whole in every style (with the blurred background unless Black Bars is chosen). Every style plays smoothly on an Apple TV HD, the slowest supported model, so none is recommended over another; Slow Pan is the default on every Apple TV. **Troubleshooting › Test iCloud Loading** checks 12 photos spread across the album and reports which ones are already on the Apple TV and how long the others take to download.
 - **During a slideshow (Siri Remote):**
 
 | Input | Action |
@@ -314,7 +314,8 @@ The PhotoKit layer (`PhotoKitRequest`, `PhotoKitImageProvider`, `PhotoLibraryMod
 | Full sequential playback of a large album | Apple TV HD (AppleTV5,3), tvOS 26.6 | ✅ 392-photo album: every photo downloaded and displayed |
 | Vertical styles: layout, pan motion, pairs, crossfade with no black frames | tvOS 26.5 Simulator, `-demoSlideshow -verticalStyle …`, screenshots and frame analysis of screen recordings | ✅ All five styles render; no black or jumping frames at slide changes |
 | Slow Pan smoothness | Apple TV HD (AppleTV5,3), tvOS 26.6 | ✅ Smooth (reported by owner) |
-| Vertical styles on the device: Vision framing, memory | Physical Apple TV | ❌ **Not verified** (checklist section 12) |
+| Vertical styles on the device: playback and memory | Apple TV HD (AppleTV5,3), tvOS 26.6 | ✅ All five styles played with no playback or memory problems (reported by owner, 2026‑09‑28) |
+| Vertical styles on the device: Vision framing accuracy (Slow Pan end point, Smart Crop faces) | Physical Apple TV | ❌ **Not measured** (checklist 12.3–12.4) |
 | On-device log file written and copied off with `devicectl` | Apple TV HD (AppleTV5,3), tvOS 26.6 | ✅ |
 | Freeze during Smart Crop playback (both pool threads stuck in Vision) | Apple TV HD, diagnosed from the log file and a live backtrace | ✅ Cause found and fixed; ❌ fix **not yet confirmed** by a long Smart Crop run on the device |
 | Downloading photos that aren't on the device | Apple TV HD (AppleTV5,3), tvOS 26.6, **Test iCloud Loading** | ✅ 12 sampled: 1 on device, 11 not on device; 11/11 downloaded at screen size (median 0.8 s, slowest 2.0 s). This is a 12-photo sample, not a full cycle |

@@ -13,7 +13,7 @@ struct AlbumDetailView: View {
     @AppStorage(SettingsKey.loop) private var loop = true
     @AppStorage(SettingsKey.showCounter) private var showCounter = true
     @AppStorage(SettingsKey.albumOrder) private var albumOrder = AlbumOrder.album
-    @AppStorage(SettingsKey.verticalStyle) private var verticalStyle = VerticalPhotoStyle.recommended
+    @AppStorage(SettingsKey.verticalStyle) private var verticalStyle = VerticalPhotoStyle.defaultStyle
     @FocusState private var playFocused: Bool
 
     private var current: AlbumSummary {
@@ -56,14 +56,11 @@ struct AlbumDetailView: View {
                     Text("Slideshow Settings · All Albums")
                 }
                 Section {
-                    ChoicePicker(
-                        "Vertical Photos",
-                        selection: $verticalStyle,
-                        options: VerticalPhotoStyle.allCases,
-                        label: styleLabel
-                    )
+                    ChoicePicker("Vertical Photos", selection: $verticalStyle, options: VerticalPhotoStyle.allCases) {
+                        $0.label
+                    }
                 } footer: {
-                    Text(verticalFooter)
+                    Text(verticalStyle.explanation)
                 }
                 Section {
                     NavigationLink("Troubleshooting") {
@@ -117,16 +114,6 @@ struct AlbumDetailView: View {
 
     private func play(resume: ResumePoint?) {
         router.request = SlideshowRequest(album: current, resume: resume)
-    }
-
-    private func styleLabel(_ style: VerticalPhotoStyle) -> String {
-        style == .recommended ? "\(style.label) (Recommended)" : style.label
-    }
-
-    private var verticalFooter: String {
-        let recommended = VerticalPhotoStyle.recommended
-        guard verticalStyle != recommended else { return verticalStyle.explanation }
-        return "\(verticalStyle.explanation) \(recommended.label) is recommended for this Apple TV."
     }
 }
 

@@ -51,28 +51,15 @@ enum VerticalPhotoStyle: String, CaseIterable, Identifiable, Sendable {
     /// Photos taller than this width-to-height ratio are treated as vertical.
     static let verticalAspectLimit: CGFloat = 0.9
 
-    /// Best choice for the Apple TV the app is running on.
-    static var recommended: VerticalPhotoStyle {
-        DeviceClass.current.isOlderModel ? .blurredBackground : .slowPan
-    }
+    /// Starting style on every Apple TV. All five styles play smoothly on an
+    /// Apple TV HD, the slowest supported model (checked 2026-09-28).
+    static let defaultStyle = VerticalPhotoStyle.slowPan
 
     var usesBackdrop: Bool { self != .blackBars }
 }
 
-/// Coarse Apple TV hardware classification.
+/// The Apple TV hardware model, for the launch log.
 enum DeviceClass {
-    case older
-    case newer
-
-    /// Apple TV HD (AppleTV5,x) and Apple TV 4K 1st generation (AppleTV6,x)
-    /// have A8/A10X chips and stop at tvOS 26.
-    var isOlderModel: Bool { self == .older }
-
-    static let current: DeviceClass = {
-        let identifier = modelIdentifier
-        return identifier.hasPrefix("AppleTV5,") || identifier.hasPrefix("AppleTV6,") ? .older : .newer
-    }()
-
     /// Hardware model such as "AppleTV5,3" (the simulated model in the simulator).
     static var modelIdentifier: String {
         ProcessInfo.processInfo.environment["SIMULATOR_MODEL_IDENTIFIER"] ?? machineIdentifier()

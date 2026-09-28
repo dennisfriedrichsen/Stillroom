@@ -146,7 +146,8 @@ struct AccessRequestView: View {
             Text(
                 "Stillroom plays slideshows of your Photos albums, including photos that are stored only in iCloud. "
                     + "It needs permission to read your photo library.\n\nPhotos are loaded a few at a time while you "
-                    + "watch. Nothing is copied off this Apple TV, saved by the app, or sent anywhere else."
+                    + "watch and aren’t saved by Stillroom. It keeps small covers of albums you’ve played for the "
+                    + "Top Shelf, and syncs your Recently Played list and where you left off through your iCloud account."
             )
             .multilineTextAlignment(.center)
             .frame(maxWidth: 1100)

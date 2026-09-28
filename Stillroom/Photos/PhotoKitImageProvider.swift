@@ -5,7 +5,7 @@ import UIKit
 /// Loads slideshow images through public PhotoKit APIs, downloading from
 /// iCloud when needed, and returns decoded images no larger than the display.
 ///
-/// Nothing is written to disk by the app. PhotoKit's own caches are system
+/// No slideshow image is written to disk by the app. PhotoKit's own caches are system
 /// managed and purgeable; the app never relies on them holding anything.
 final class PhotoKitImageProvider: ImageProviding {
     private let manager = PHImageManager.default()

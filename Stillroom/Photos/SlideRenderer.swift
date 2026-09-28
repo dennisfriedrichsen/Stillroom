@@ -36,43 +36,30 @@ enum VerticalPhotoStyle: String, CaseIterable, Identifiable, Sendable {
     var explanation: String {
         switch self {
         case .blurredBackground:
-            "The whole photo, with a blurred copy filling the sides. Lightest on older Apple TVs."
+            "The whole photo, with a blurred copy filling the sides."
         case .slowPan:
-            "Vertical photos fill the screen and slowly pan toward the face or subject. Uses the most memory and processing."
+            "Fills the screen and slowly pans to the face or subject. Uses the most memory."
         case .smartCrop:
-            "Vertical photos fill the screen, cropped around the face or subject. Parts of the photo aren’t shown."
+            "Fills the screen, cropped around the face or subject. Part of the photo is cut off."
         case .sideBySide:
             "Two vertical photos next to each other share a slide."
         case .blackBars:
-            "The whole photo with black bars at the sides."
+            "The whole photo, with black bars at the sides."
         }
     }
 
     /// Photos taller than this width-to-height ratio are treated as vertical.
     static let verticalAspectLimit: CGFloat = 0.9
 
-    /// Best choice for the Apple TV the app is running on.
-    static var recommended: VerticalPhotoStyle {
-        DeviceClass.current.isOlderModel ? .blurredBackground : .slowPan
-    }
+    /// Starting style on every Apple TV. All five styles play smoothly on an
+    /// Apple TV HD, the slowest supported model (checked 2026-09-28).
+    static let defaultStyle = VerticalPhotoStyle.slowPan
 
     var usesBackdrop: Bool { self != .blackBars }
 }
 
-/// Coarse Apple TV hardware classification.
+/// The Apple TV hardware model, for the launch log.
 enum DeviceClass {
-    case older
-    case newer
-
-    /// Apple TV HD (AppleTV5,x) and Apple TV 4K 1st generation (AppleTV6,x)
-    /// have A8/A10X chips and stop at tvOS 26.
-    var isOlderModel: Bool { self == .older }
-
-    static let current: DeviceClass = {
-        let identifier = modelIdentifier
-        return identifier.hasPrefix("AppleTV5,") || identifier.hasPrefix("AppleTV6,") ? .older : .newer
-    }()
-
     /// Hardware model such as "AppleTV5,3" (the simulated model in the simulator).
     static var modelIdentifier: String {
         ProcessInfo.processInfo.environment["SIMULATOR_MODEL_IDENTIFIER"] ?? machineIdentifier()

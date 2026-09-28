@@ -79,8 +79,8 @@ Settings: Shuffle on, Loop on, 3‑second slides.
 - [ ] **7.4** Click → controls appear with visible focus. Left/right move focus between buttons. Back hides them; Back again exits.
 - [ ] **7.5** The Loop and Counter buttons in the controls take effect immediately.
 - [ ] **7.6** With Black Bars or Blurred Background, photos of every shape (portrait, landscape, panorama) show whole, with nothing cropped.
-- [ ] **7.7** Album screen, never-played album: focus starts on **Play Slideshow**. Move Right into the settings, down to any row, then press Left: focus returns to Play. From a settings row, press Play/Pause: the slideshow starts at Photo 1.
-- [ ] **7.8** Album screen, album left part way through: focus starts on **Resume from Photo N**, with the progress bar under it and a smaller **Start Over** below. Play/Pause from a settings row resumes at Photo N; Start Over starts at Photo 1.
+- [x] **7.7** Album screen, never-played album: focus starts on **Play Slideshow**. Move Right into the settings, down to any row, then press Left: focus returns to Play. From a settings row, press Play/Pause: the slideshow starts at Photo 1.
+- [x] **7.8** Album screen, album left part way through: focus starts on **Resume from Photo N**, with the progress bar under it and a smaller **Start Over** below. Play/Pause from a settings row resumes at Photo N; Start Over starts at Photo 1.
 
 ## 8. Network loss and recovery
 

@@ -111,13 +111,7 @@ public final class SlideshowController {
     /// read it from a `TimelineView` to drive motion such as panning. Freezes
     /// while paused and holds at the full duration while the next slide loads.
     public var slideElapsed: Duration {
-        if let timerStartedAt {
-            return min(settings.slideDuration, scheduler.now - timerStartedAt)
-        }
-        if let remainingSlideTime {
-            return settings.slideDuration - remainingSlideTime
-        }
-        return phase == .showing ? .zero : settings.slideDuration
+        slideTimer.elapsed(of: settings.slideDuration) ?? (phase == .showing ? .zero : settings.slideDuration)
     }
 
     /// How long playback has been waiting for the current target slide, or nil
@@ -133,14 +127,11 @@ public final class SlideshowController {
     private let bufferConfiguration: ImageBuffer.Configuration
     private let targetPixelSize: PixelSize
     private let seedSource: () -> UInt64
+    private let slideTimer: SlideTimer
 
     private var buffer: ImageBuffer?
     private var sequence: PlaybackSequence?
     private var sessionID = 0
-    private var slideTimer: ScheduledWork?
-    private var timerStartedAt: Duration?
-    /// Time left on the slide timer when paused.
-    private var remainingSlideTime: Duration?
     private var noticeTimer: ScheduledWork?
     private var pendingSnapshot: (ids: [AssetID], pairable: Set<AssetID>)?
     private var wasPlayingBeforeBackground = false
@@ -148,11 +139,7 @@ public final class SlideshowController {
     private var loadingSince: Duration?
     private var loadingKey: String?
 
-    private var displayedThisCycle: Set<AssetID> = []
-    private var skippedThisCycle: [AssetID] = []
-    private var removedThisCycle: [AssetID] = []
-    /// Skipped and removed photos, left off their slides for the rest of the cycle.
-    private var excludedThisCycle: Set<AssetID> = []
+    private var thisCycle = CycleTracker()
 
     public init(
         provider: any ImageProviding,
@@ -168,6 +155,7 @@ public final class SlideshowController {
         self.bufferConfiguration = bufferConfiguration
         self.settings = settings
         self.seedSource = seedSource
+        slideTimer = SlideTimer(scheduler: scheduler)
     }
 
     // MARK: Session lifecycle
@@ -217,7 +205,7 @@ public final class SlideshowController {
         )
         if let resumeAt, sequence.seek(to: resumeAt) {
             // Shown in the earlier session; keeps the cycle report accurate.
-            displayedThisCycle = Set(sequence.passedIDs)
+            thisCycle.recordShown(sequence.passedIDs)
             StillroomLog.playback.info("Resuming at photo \(sequence.position + 1)")
         }
         self.sequence = sequence
@@ -231,8 +219,7 @@ public final class SlideshowController {
 
     /// Ends the slideshow, cancelling timers and every outstanding request.
     public func stop() {
-        slideTimer?.cancel()
-        slideTimer = nil
+        slideTimer.cancel()
         noticeTimer?.cancel()
         noticeTimer = nil
         buffer?.onEvent = nil
@@ -251,12 +238,10 @@ public final class SlideshowController {
         targetAttempt = 0
         loadingSince = nil
         loadingKey = nil
-        remainingSlideTime = nil
-        timerStartedAt = nil
         pendingSnapshot = nil
         notice = nil
         lastCycleReport = nil
-        resetCycleTracking()
+        thisCycle = CycleTracker()
         publishDiagnostics()
     }
 
@@ -271,13 +256,7 @@ public final class SlideshowController {
         guard sequence != nil, !isPaused else { return }
         isPaused = true
         StillroomLog.playback.info("Paused at photo \(targetPosition + 1)")
-        if let slideTimer, let timerStartedAt {
-            let elapsed = scheduler.now - timerStartedAt
-            remainingSlideTime = max(.zero, settings.slideDuration - elapsed)
-            slideTimer.cancel()
-        }
-        slideTimer = nil
-        timerStartedAt = nil
+        slideTimer.pause()
     }
 
     public func resume() {
@@ -335,13 +314,10 @@ public final class SlideshowController {
             if case .failed = buffer.status(for: id) { true } else { false }
         }
         for id in failedIDs {
-            if !skippedThisCycle.contains(id) {
-                skippedThisCycle.append(id)
-            }
-            excludedThisCycle.insert(id)
+            thisCycle.recordSkipped(id)
             StillroomLog.playback.notice("User skipped unavailable photo \(id.logToken)")
         }
-        if activeIDs(of: sequence).isEmpty {
+        if thisCycle.active(sequence.currentIDs).isEmpty {
             advance(navigation: .userForward)
         } else {
             phase = .loading
@@ -423,17 +399,17 @@ public final class SlideshowController {
 
     private func advance(navigation: Navigation) {
         guard var sequence else { return }
-        cancelSlideTimer()
+        slideTimer.cancel()
         let step = sequence.advance()
         self.sequence = sequence
         switch step {
         case .advanced:
             break
         case .wrapped(let completedCycle):
-            let report = makeReport(cycle: completedCycle)
+            let report = thisCycle.report(cycle: completedCycle, total: sequence.count)
             lastCycleReport = report
             StillroomLog.playback.info("Cycle \(completedCycle) complete: \(report.summary)")
-            resetCycleTracking()
+            thisCycle = CycleTracker()
             if report.nothingCouldLoad {
                 fail("None of the \(report.total) photos could be displayed. Check the network connection and iCloud Photos on this Apple TV, then try again.")
                 return
@@ -446,7 +422,7 @@ public final class SlideshowController {
                 showNotice("Cycle \(completedCycle): \(report.summary)")
             }
         case .ended:
-            let report = makeReport(cycle: sequence.cycle)
+            let report = thisCycle.report(cycle: sequence.cycle, total: sequence.count)
             lastCycleReport = report
             StillroomLog.playback.info("Slideshow finished: \(report.summary)")
             if report.nothingCouldLoad {
@@ -469,7 +445,7 @@ public final class SlideshowController {
             return
         }
         self.sequence = sequence
-        cancelSlideTimer()
+        slideTimer.cancel()
         phase = .loading
         targetChanged(.userBackward)
     }
@@ -486,11 +462,6 @@ public final class SlideshowController {
         showNotice("Album updated: \(old) → \(snapshot.ids.count) photos")
     }
 
-    /// Photos on the current slide that haven't been skipped or removed this cycle.
-    private func activeIDs(of sequence: PlaybackSequence) -> [AssetID] {
-        sequence.currentIDs.filter { !excludedThisCycle.contains($0) }
-    }
-
     /// Re-evaluates the slide playback is on after any change of position,
     /// buffer state, or retry.
     private func targetChanged(_ navigation: Navigation) {
@@ -500,14 +471,14 @@ public final class SlideshowController {
         cycle = sequence.cycle
         refreshWindow()
 
-        var ids = activeIDs(of: sequence)
+        var ids = thisCycle.active(sequence.currentIDs)
         if ids.isEmpty {
             // Every photo on this slide was skipped or removed earlier this cycle.
-            let skipped = sequence.currentIDs.filter { skippedThisCycle.contains($0) }
+            let skipped = thisCycle.skippedIDs(among: sequence.currentIDs)
             if navigation.isUser, !skipped.isEmpty {
                 // The user came back to it on purpose: try the skipped photos again.
+                thisCycle.readmit(skipped)
                 for id in skipped {
-                    excludedThisCycle.remove(id)
                     buffer.retry(id)
                 }
                 ids = skipped
@@ -534,8 +505,7 @@ public final class SlideshowController {
                 continue
             case .failed(let error) where error.kind == .notFound || error.kind == .unsupported:
                 // Deleted or changed type after the snapshot. Record and leave it off the slide.
-                if !removedThisCycle.contains(id) { removedThisCycle.append(id) }
-                excludedThisCycle.insert(id)
+                thisCycle.recordRemoved(id)
                 removedAny = true
                 StillroomLog.playback.notice("Photo \(id.logToken) no longer available; skipping")
             case .failed(let error):
@@ -611,8 +581,7 @@ public final class SlideshowController {
             slideIndex: sequence.slideIndex,
             position: sequence.position
         )
-        displayedThisCycle.formUnion(ids)
-        skippedThisCycle.removeAll { ids.contains($0) }
+        thisCycle.recordShown(ids)
         StillroomLog.playback.info(
             "Showing photo \(sequence.position + 1) of \(sequence.count), cycle \(sequence.cycle) [\(tokens(ids))]"
                 + (loadingSince == nil ? " (was ready)" : " after waiting \(elapsedText())")
@@ -623,7 +592,7 @@ public final class SlideshowController {
         isRetryingTarget = false
         targetAttempt = 0
         phase = .showing
-        remainingSlideTime = nil
+        slideTimer.cancel()
         refreshWindow()
         startSlideTimerIfNeeded()
         publishDiagnostics()
@@ -632,7 +601,7 @@ public final class SlideshowController {
     private func handle(_ event: ImageBuffer.Event, session: Int) {
         // Events from a previous session can still be delivered while tearing down.
         guard session == sessionID, let sequence else { return }
-        let targetIDs = activeIDs(of: sequence)
+        let targetIDs = thisCycle.active(sequence.currentIDs)
         switch event {
         case .ready(let id), .failed(let id, _):
             if targetIDs.contains(id), phase == .loading {
@@ -651,7 +620,7 @@ public final class SlideshowController {
         var progress: [Double] = []
         var retrying = false
         var attempt = 0
-        for id in activeIDs(of: sequence) {
+        for id in thisCycle.active(sequence.currentIDs) {
             switch buffer.status(for: id) {
             case .loading(let current, let fraction):
                 progress.append(fraction)
@@ -674,8 +643,9 @@ public final class SlideshowController {
     private func refreshWindow() {
         guard let sequence, let buffer else { return }
         let finished = phase == .finished
+        let active = thisCycle.active(sequence.currentIDs)
         buffer.setWindow(
-            needed: activeIDs(of: sequence).isEmpty ? sequence.currentIDs : activeIDs(of: sequence),
+            needed: active.isEmpty ? sequence.currentIDs : active,
             ahead: finished ? [] : sequence.upcoming(bufferConfiguration.prefetchAhead),
             behind: sequence.recent(bufferConfiguration.keepBehind),
             onScreen: displayed?.ids ?? []
@@ -685,56 +655,26 @@ public final class SlideshowController {
     // MARK: Slide timer
 
     private func startSlideTimerIfNeeded() {
-        guard phase == .showing, !isPaused, slideTimer == nil else { return }
-        let duration = remainingSlideTime ?? settings.slideDuration
-        remainingSlideTime = nil
+        guard phase == .showing, !isPaused, !slideTimer.isRunning else { return }
         let session = sessionID
-        timerStartedAt = scheduler.now - (settings.slideDuration - duration)
-        slideTimer = scheduler.schedule(after: duration) { [weak self] in
+        slideTimer.start(duration: settings.slideDuration) { [weak self] in
             self?.slideTimerFired(session: session)
         }
     }
 
     private func slideTimerFired(session: Int) {
         guard session == sessionID, phase == .showing, !isPaused else { return }
-        slideTimer = nil
-        timerStartedAt = nil
         advance(navigation: .automatic)
-    }
-
-    private func cancelSlideTimer() {
-        slideTimer?.cancel()
-        slideTimer = nil
-        timerStartedAt = nil
-        remainingSlideTime = nil
     }
 
     // MARK: Helpers
 
     private func fail(_ message: String) {
-        cancelSlideTimer()
+        slideTimer.cancel()
         buffer?.reset()
         phase = .failed(message)
         StillroomLog.playback.error("Playback failed: \(message)")
         publishDiagnostics()
-    }
-
-    private func makeReport(cycle: Int) -> CycleReport {
-        let total = sequence?.count ?? 0
-        return CycleReport(
-            cycle: cycle,
-            total: total,
-            displayed: displayedThisCycle.count,
-            skippedUnavailable: skippedThisCycle,
-            removedFromLibrary: removedThisCycle
-        )
-    }
-
-    private func resetCycleTracking() {
-        displayedThisCycle = []
-        skippedThisCycle = []
-        removedThisCycle = []
-        excludedThisCycle = []
     }
 
     private func showNotice(_ text: String) {
@@ -752,9 +692,9 @@ public final class SlideshowController {
         value.cycle = cycle
         value.position = sequence == nil ? 0 : targetPosition + 1
         value.total = total
-        value.displayedThisCycle = displayedThisCycle.count
-        value.skippedThisCycle = skippedThisCycle.count
-        value.removedThisCycle = removedThisCycle.count
+        value.displayedThisCycle = thisCycle.displayed.count
+        value.skippedThisCycle = thisCycle.skipped.count
+        value.removedThisCycle = thisCycle.removed.count
         value.buffer = buffer?.currentStats ?? BufferStats()
         value.recentRequests = buffer?.recentRequests ?? []
         if value != diagnostics {

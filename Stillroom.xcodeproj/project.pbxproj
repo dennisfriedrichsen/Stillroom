@@ -361,6 +361,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Config/Stillroom-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Stillroom;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.photography";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Stillroom reads your Photos albums to play slideshows, including photos stored only in iCloud. Photos are kept in memory only while needed and are never copied or shared.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -390,6 +391,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Config/Stillroom-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Stillroom;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.photography";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Stillroom reads your Photos albums to play slideshows, including photos stored only in iCloud. Photos are kept in memory only while needed and are never copied or shared.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -417,6 +419,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Config/TopShelf-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Stillroom Top Shelf";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -442,6 +445,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Config/TopShelf-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Stillroom Top Shelf";
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

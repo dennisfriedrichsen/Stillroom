@@ -10,9 +10,11 @@ import UIKit
 final class PhotoKitImageProvider: ImageProviding {
     private let manager = PHImageManager.default()
     private let style: VerticalPhotoStyle
+    private let detectsFocus: Bool
 
-    init(style: VerticalPhotoStyle) {
+    init(style: VerticalPhotoStyle, detectsFocus: Bool = false) {
         self.style = style
+        self.detectsFocus = detectsFocus
     }
 
     func loadImage(
@@ -67,7 +69,7 @@ final class PhotoKitImageProvider: ImageProviding {
             }
             throw ImageLoadFailure(.other, "Photos returned no image.")
         }
-        return try await SlideRenderer.render(image, style: style, screen: targetPixelSize)
+        return try await SlideRenderer.render(image, style: style, detectsFocus: detectsFocus, screen: targetPixelSize)
     }
 
     static func failure(from error: any Error) -> ImageLoadFailure {

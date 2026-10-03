@@ -14,6 +14,9 @@ struct AlbumDetailView: View {
     @AppStorage(SettingsKey.showCounter) private var showCounter = true
     @AppStorage(SettingsKey.albumOrder) private var albumOrder = AlbumOrder.album
     @AppStorage(SettingsKey.verticalStyle) private var verticalStyle = VerticalPhotoStyle.defaultStyle
+    @AppStorage(SettingsKey.transition) private var transition = SlideTransition.crossfade
+    @AppStorage(SettingsKey.fadeSpeed) private var fadeSpeed = FadeSpeed.gentle
+    @AppStorage(SettingsKey.kenBurns) private var kenBurns = false
     @FocusState private var playFocused: Bool
 
     private var current: AlbumSummary {
@@ -54,6 +57,15 @@ struct AlbumDetailView: View {
                     Toggle("Show “Photo 12 of 600”", isOn: $showCounter)
                 } header: {
                     Text("Slideshow Settings · All Albums")
+                }
+                Section {
+                    ChoicePicker("Transition", selection: $transition, options: SlideTransition.allCases) { $0.label }
+                    ChoicePicker("Transition Speed", selection: $fadeSpeed, options: FadeSpeed.allCases) {
+                        "\($0.label) (\($0.seconds.formatted()) s)"
+                    }
+                    Toggle("Ken Burns Effect", isOn: $kenBurns)
+                } footer: {
+                    Text(transitionExplanation)
                 }
                 Section {
                     ChoicePicker("Vertical Photos", selection: $verticalStyle, options: VerticalPhotoStyle.allCases) {
@@ -110,6 +122,14 @@ struct AlbumDetailView: View {
             .disabled(current.photoCount == 0)
             .focused($playFocused)
         }
+    }
+
+    private var transitionExplanation: String {
+        var text = kenBurns
+            ? "Each photo slowly zooms toward its subject. Slow Pan photos keep panning instead."
+            : "Ken Burns slowly zooms each photo toward its subject."
+        text += " Pressing ◀︎ or ▶︎ on the remote slides straight to the previous or next photo."
+        return text
     }
 
     private func play(resume: ResumePoint?) {

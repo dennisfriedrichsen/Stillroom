@@ -78,6 +78,9 @@ enum SettingsKey {
     static let albumOrder = "albumOrder"
     static let showDiagnostics = "showDiagnostics"
     static let verticalStyle = "verticalStyle"
+    static let transition = "slideTransition"
+    static let fadeSpeed = "fadeSpeed"
+    static let kenBurns = "kenBurns"
 }
 
 enum SettingsDefault {

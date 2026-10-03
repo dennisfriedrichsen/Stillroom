@@ -9,40 +9,63 @@ struct SlideContentView: View {
     let controller: SlideshowController
     /// False for the outgoing slide during a crossfade; it holds its final pan position.
     var isCurrent = true
+    /// Seconds of Ken Burns zoom (the slide's time on screen), or nil for none.
+    var kenBurnsDuration: Double?
 
     var body: some View {
         GeometryReader { geometry in
-            ZStack {
-                Color.black
-                if style.usesBackdrop, let backdrop = slide.photos[0].image.backdrop {
-                    Image(decorative: backdrop, scale: 1)
-                        .resizable()
-                        .interpolation(.high)
-                        .aspectRatio(contentMode: .fill)
-                        .frame(width: geometry.size.width, height: geometry.size.height)
-                        .clipped()
-                        .overlay(Color.black.opacity(0.35))
-                }
-                if slide.photos.count > 1 {
-                    pair(in: geometry.size)
-                } else if let photo = slide.photos.first {
-                    if style == .slowPan, let cgImage = photo.image.cgImage,
-                       pans(cgImage, in: geometry.size) {
-                        PanningImage(
-                            image: cgImage,
-                            focus: photo.image.focus,
-                            viewSize: geometry.size,
-                            label: label(for: slide.position + 1),
-                            controller: controller,
-                            isCurrent: isCurrent
-                        )
-                    } else {
-                        fitted(photo, label: slide.position + 1)
-                    }
-                }
+            if let effect = kenBurns(in: geometry.size) {
+                content(in: geometry.size)
+                    .modifier(effect)
+            } else {
+                content(in: geometry.size)
             }
         }
         .ignoresSafeArea()
+    }
+
+    private func content(in size: CGSize) -> some View {
+        ZStack {
+            Color.black
+            if style.usesBackdrop, let backdrop = slide.photos[0].image.backdrop {
+                Image(decorative: backdrop, scale: 1)
+                    .resizable()
+                    .interpolation(.high)
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: size.width, height: size.height)
+                    .clipped()
+                    .overlay(Color.black.opacity(0.35))
+            }
+            if slide.photos.count > 1 {
+                pair(in: size)
+            } else if let photo = slide.photos.first {
+                if style == .slowPan, let cgImage = photo.image.cgImage,
+                   pans(cgImage, in: size) {
+                    PanningImage(
+                        image: cgImage,
+                        focus: photo.image.focus,
+                        viewSize: size,
+                        label: label(for: slide.position + 1),
+                        controller: controller,
+                        isCurrent: isCurrent
+                    )
+                } else {
+                    fitted(photo, label: slide.position + 1)
+                }
+            }
+        }
+    }
+
+    /// Single photos zoom slowly; panning photos already move, and pairs would lose their edges.
+    private func kenBurns(in size: CGSize) -> KenBurnsEffect? {
+        guard let kenBurnsDuration, slide.photos.count == 1, let photo = slide.photos.first else { return nil }
+        if style == .slowPan, let cgImage = photo.image.cgImage, pans(cgImage, in: size) { return nil }
+        return KenBurnsEffect(
+            zoomsIn: slide.slideIndex.isMultiple(of: 2),
+            anchor: KenBurnsEffect.anchor(focus: photo.image.focus, slideIndex: slide.slideIndex),
+            duration: kenBurnsDuration,
+            isPaused: controller.isPaused
+        )
     }
 
     @ViewBuilder

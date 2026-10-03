@@ -9,6 +9,7 @@ struct SlideshowScreen: View {
     let order: AlbumOrder
     let settings: SlideshowSettings
     let style: VerticalPhotoStyle
+    var transitions = TransitionSettings()
     /// Where to pick up a slideshow that was left part way through.
     var resume: ResumePoint?
 
@@ -28,6 +29,7 @@ struct SlideshowScreen: View {
                     controller: controller,
                     albumTitle: album.title,
                     style: style,
+                    transitions: transitions,
                     isNetworkAvailable: network.isAvailable,
                     onExit: exit,
                     onRestart: restart
@@ -77,10 +79,14 @@ struct SlideshowScreen: View {
     private func prepare() async {
         guard controller == nil else { return }
         let provider: any ImageProviding
+        // Ken Burns zooms toward the subject, so find it in every photo.
+        let detectsFocus = transitions.kenBurns
         #if DEBUG
-        provider = DemoImageProvider.isEnabled ? DemoImageProvider(style: style) : PhotoKitImageProvider(style: style)
+        provider = DemoImageProvider.isEnabled
+            ? DemoImageProvider(style: style, detectsFocus: detectsFocus)
+            : PhotoKitImageProvider(style: style, detectsFocus: detectsFocus)
         #else
-        provider = PhotoKitImageProvider(style: style)
+        provider = PhotoKitImageProvider(style: style, detectsFocus: detectsFocus)
         #endif
         guard let snapshot = await takeSnapshot() else {
             preparationError = "This album is no longer in your library."
@@ -190,6 +196,9 @@ struct SlideshowLaunch: View {
     @AppStorage(SettingsKey.loop) private var loop = true
     @AppStorage(SettingsKey.albumOrder) private var albumOrder = AlbumOrder.album
     @AppStorage(SettingsKey.verticalStyle) private var verticalStyle = VerticalPhotoStyle.defaultStyle
+    @AppStorage(SettingsKey.transition) private var transition = SlideTransition.crossfade
+    @AppStorage(SettingsKey.fadeSpeed) private var fadeSpeed = FadeSpeed.gentle
+    @AppStorage(SettingsKey.kenBurns) private var kenBurns = false
 
     var body: some View {
         SlideshowScreen(
@@ -201,6 +210,7 @@ struct SlideshowLaunch: View {
                 loops: loop
             ),
             style: verticalStyle,
+            transitions: TransitionSettings(transition: transition, fadeSpeed: fadeSpeed, kenBurns: kenBurns),
             resume: resume
         )
     }

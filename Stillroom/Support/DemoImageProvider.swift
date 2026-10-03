@@ -13,9 +13,11 @@ final class DemoImageProvider: ImageProviding {
     static let count = 60
 
     private let style: VerticalPhotoStyle
+    private let detectsFocus: Bool
 
-    init(style: VerticalPhotoStyle) {
+    init(style: VerticalPhotoStyle, detectsFocus: Bool = false) {
         self.style = style
+        self.detectsFocus = detectsFocus
     }
 
     static func snapshot() -> AlbumSnapshot {
@@ -66,7 +68,7 @@ final class DemoImageProvider: ImageProviding {
                 withAttributes: attributes
             )
         }
-        return try await SlideRenderer.render(image, style: style, screen: targetPixelSize)
+        return try await SlideRenderer.render(image, style: style, detectsFocus: detectsFocus, screen: targetPixelSize)
     }
 }
 #endif

@@ -44,7 +44,7 @@ Stillroom has no accounts and no server of its own. Photos are read through Appl
 ## Using Stillroom
 
 - **Albums screen:** albums are arranged in the same folders as in Photos. Folders and albums appear in the same custom order as in Photos (PhotoKit's unsorted order; Apple doesn't document that it matches Photos, but it did on an Apple TV HD with tvOS 26.6 on 2026‑09‑24). A folder card shows how many albums it contains (subfolders included) and opens its own grid. Empty folders, and folders holding only Shared Albums, are hidden. Each album card shows the album name, cover, and number of eligible still photos. Albums appear immediately; counts and covers fill in over a few seconds ("counting photos…"), which took about 9 s for 157 albums on an Apple TV HD. The cover is the album's key photo from Photos. Key photos are slow to look up on older Apple TVs (20–34 s for 157 albums on an Apple TV HD), so the first photo stands in until the key photo arrives in the background; key photos are saved between launches, so after the first run covers are right immediately. The lookup pauses during a slideshow. Live Photos count and are shown as stills; videos are excluded from the count and the slideshow.
-- **Album screen:** **Play Slideshow**, or **Resume from Photo N** with a progress bar if you left the album part way through, and a smaller **Start Over** below it. Focus starts on Play/Resume, pressing Left from any setting returns to it, and the remote's Play/Pause button starts or resumes the slideshow from anywhere on the screen. The settings beside it apply to **every album** and are saved between launches: Shuffle, Order, Loop, Slide Duration (default 8 s), the "Photo 12 of 600" counter, Transition, Transition Speed, Ken Burns Effect, and Vertical Photos. **Troubleshooting** at the bottom opens Test iCloud Loading and the diagnostics overlay.
+- **Album screen:** **Play Slideshow**, or **Resume from Photo N** with a progress bar if you left the album part way through, and a smaller **Start Over** below it. Focus starts on Play/Resume, pressing Left from any setting returns to it, and the remote's Play/Pause button starts or resumes the slideshow from anywhere on the screen. The settings beside it apply to **every album** and are saved between launches: Shuffle, Order, Loop, Slide Duration (default 8 s), the "Photo 12 of 600" counter, Transition, Transition Speed, Ken Burns Effect, and Vertical Photos. The Ken Burns Effect and Vertical Photos settings have no explanatory footers. **Troubleshooting** at the bottom opens Test iCloud Loading and the diagnostics overlay.
 - **Vertical Photos** (how photos that don't fill a 16:9 TV are shown):
 
 | Style | What you see | Cost |
@@ -62,8 +62,8 @@ Stillroom has no accounts and no server of its own. Photos are read through Appl
 | Input | Action |
 |---|---|
 | Right / Left (click or swipe) | Next / Previous |
-| Play/Pause | Pause or resume |
-| Click, or Up/Down | Show controls (Previous, Play/Pause, Next, Loop, Counter, Exit) |
+| Play/Pause | Pause or resume; while paused, choose **Settings** in the controls to change playback settings, then Resume from the album screen |
+| Click, or Up/Down | Show controls (Previous, Play/Pause, Next, Settings, Exit) |
 | Back / Menu | Hide the controls, or exit the slideshow |
 
 - **If a photo can't load:** the current photo stays on screen with a small "Loading…" or "retrying…" note. After automatic retries fail, Stillroom stops and offers **Retry**, **Skip Photo**, or **Exit**. Skipped photos are listed in the summary at the end of the cycle.

@@ -13,6 +13,7 @@ struct SlideshowView: View {
     let isNetworkAvailable: Bool
     let onExit: () -> Void
     let onRestart: () -> Void
+    var onSettings: (() -> Void)?
 
     @Environment(PhotoLibraryModel.self) private var library
     @AppStorage(SettingsKey.showCounter) private var showCounter = true
@@ -382,11 +383,14 @@ struct SlideshowView: View {
                     Button { navigate(.forward); scheduleHide() } label: {
                         Label("Next", systemImage: "forward.fill")
                     }
-                    Button { controller.setLoops(!controller.settings.loops); scheduleHide() } label: {
-                        Label(controller.settings.loops ? "Loop On" : "Loop Off", systemImage: "repeat")
-                    }
-                    Button { showCounter.toggle(); scheduleHide() } label: {
-                        Label(showCounter ? "Counter On" : "Counter Off", systemImage: "number")
+                    if let onSettings {
+                        Button {
+                            controller.pause()
+                            hideControlsTask?.cancel()
+                            onSettings()
+                        } label: {
+                            Label("Settings", systemImage: "gearshape")
+                        }
                     }
                     Spacer()
                     Button("Exit", action: onExit)

@@ -54,6 +54,7 @@ struct RootView: View {
         }
         .fullScreenCover(item: $router.request) { request in
             SlideshowLaunch(album: request.album, resume: request.resume)
+                .presentationBackground(.black)
         }
         .onOpenURL { url in
             pendingAlbumID = TopShelfFeed.albumID(from: url)

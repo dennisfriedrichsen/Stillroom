@@ -17,6 +17,7 @@ struct AlbumDetailView: View {
     @AppStorage(SettingsKey.transition) private var transition = SlideTransition.crossfade
     @AppStorage(SettingsKey.fadeSpeed) private var fadeSpeed = FadeSpeed.gentle
     @AppStorage(SettingsKey.kenBurns) private var kenBurns = false
+    @AppStorage(SettingsKey.zoomAmount) private var zoomAmount = ZoomAmount.defaultAmount
     @FocusState private var playFocused: Bool
 
     private var current: AlbumSummary {
@@ -64,6 +65,10 @@ struct AlbumDetailView: View {
                         "\($0.label) (\($0.seconds.formatted()) s)"
                     }
                     Toggle("Ken Burns Effect", isOn: $kenBurns)
+                    ChoicePicker("Zoom Amount", selection: $zoomAmount, options: ZoomAmount.allCases) {
+                        "\($0.rawValue)%"
+                    }
+                    .disabled(!kenBurns)
                 } footer: {
                     Text(transitionExplanation)
                 }
@@ -126,8 +131,8 @@ struct AlbumDetailView: View {
 
     private var transitionExplanation: String {
         var text = kenBurns
-            ? "Each photo slowly zooms toward its subject. Slow Pan photos keep panning instead."
-            : "Ken Burns slowly zooms each photo toward its subject."
+            ? "Fitted photos gently zoom and pan. Replaces Slow Pan and Smart Crop; pairs stay still."
+            : "Ken Burns gently zooms and pans fitted photos."
         text += " Pressing ◀︎ or ▶︎ on the remote slides straight to the previous or next photo."
         return text
     }

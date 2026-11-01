@@ -93,7 +93,8 @@ struct SlideshowView: View {
                         style: style,
                         controller: controller,
                         isCurrent: layer.id == layers.last?.id,
-                        kenBurnsDuration: kenBurnsDuration
+                        kenBurnsDuration: kenBurnsDuration,
+                        zoomAmount: transitions.zoomAmount
                     )
                     .opacity(layer.opacity)
                     .offset(x: layer.offset * geometry.size.width)

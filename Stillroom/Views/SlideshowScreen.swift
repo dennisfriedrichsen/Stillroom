@@ -21,6 +21,10 @@ struct SlideshowScreen: View {
     @State private var network = NetworkMonitor()
     @State private var preparationError: String?
 
+    private var playbackStyle: VerticalPhotoStyle {
+        transitions.kenBurns && (style == .slowPan || style == .smartCrop) ? .blurredBackground : style
+    }
+
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
@@ -28,7 +32,7 @@ struct SlideshowScreen: View {
                 SlideshowView(
                     controller: controller,
                     albumTitle: album.title,
-                    style: style,
+                    style: playbackStyle,
                     transitions: transitions,
                     isNetworkAvailable: network.isAvailable,
                     onExit: exit,
@@ -83,10 +87,10 @@ struct SlideshowScreen: View {
         let detectsFocus = transitions.kenBurns
         #if DEBUG
         provider = DemoImageProvider.isEnabled
-            ? DemoImageProvider(style: style, detectsFocus: detectsFocus)
-            : PhotoKitImageProvider(style: style, detectsFocus: detectsFocus)
+            ? DemoImageProvider(style: playbackStyle, detectsFocus: detectsFocus)
+            : PhotoKitImageProvider(style: playbackStyle, detectsFocus: detectsFocus)
         #else
-        provider = PhotoKitImageProvider(style: style, detectsFocus: detectsFocus)
+        provider = PhotoKitImageProvider(style: playbackStyle, detectsFocus: detectsFocus)
         #endif
         guard let snapshot = await takeSnapshot() else {
             preparationError = "This album is no longer in your library."
@@ -97,7 +101,7 @@ struct SlideshowScreen: View {
             provider: provider,
             scheduler: ContinuousScheduler(),
             targetPixelSize: size,
-            bufferConfiguration: DisplayMetrics.bufferConfiguration(for: size, style: style),
+            bufferConfiguration: DisplayMetrics.bufferConfiguration(for: size, style: playbackStyle),
             settings: settings
         )
         controller.networkAvailabilityChanged(network.isAvailable)
@@ -199,6 +203,7 @@ struct SlideshowLaunch: View {
     @AppStorage(SettingsKey.transition) private var transition = SlideTransition.crossfade
     @AppStorage(SettingsKey.fadeSpeed) private var fadeSpeed = FadeSpeed.gentle
     @AppStorage(SettingsKey.kenBurns) private var kenBurns = false
+    @AppStorage(SettingsKey.zoomAmount) private var zoomAmount = ZoomAmount.defaultAmount
 
     var body: some View {
         SlideshowScreen(
@@ -210,7 +215,7 @@ struct SlideshowLaunch: View {
                 loops: loop
             ),
             style: verticalStyle,
-            transitions: TransitionSettings(transition: transition, fadeSpeed: fadeSpeed, kenBurns: kenBurns),
+            transitions: TransitionSettings(transition: transition, fadeSpeed: fadeSpeed, kenBurns: kenBurns, zoomAmount: zoomAmount),
             resume: resume
         )
     }

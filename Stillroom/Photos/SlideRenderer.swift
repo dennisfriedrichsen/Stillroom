@@ -115,16 +115,24 @@ enum SlideRenderer {
     /// see `BlockingWork`).
     private static let renderQueue = DispatchQueue(label: "Stillroom.SlideRenderer", qos: .userInitiated)
 
-    static func render(_ image: UIImage, style: VerticalPhotoStyle, screen: PixelSize) async throws -> LoadedImage {
+    /// - Parameter detectsFocus: Find the face or subject even when the style
+    ///   doesn't need it (for the Ken Burns effect).
+    static func render(
+        _ image: UIImage,
+        style: VerticalPhotoStyle,
+        detectsFocus: Bool = false,
+        screen: PixelSize
+    ) async throws -> LoadedImage {
         let input = UncheckedImage(image: image)
         return try await BlockingWork.run(on: renderQueue) {
-            try renderSynchronously(input.image, style: style, screen: screen)
+            try renderSynchronously(input.image, style: style, detectsFocus: detectsFocus, screen: screen)
         }
     }
 
     private static func renderSynchronously(
         _ image: UIImage,
         style: VerticalPhotoStyle,
+        detectsFocus: Bool,
         screen: PixelSize
     ) throws -> LoadedImage {
         let source = CGSize(width: image.size.width * image.scale, height: image.size.height * image.scale)
@@ -153,6 +161,9 @@ enum SlideRenderer {
         default:
             let scale = min(1, CGFloat(screen.width) / source.width, CGFloat(screen.height) / source.height)
             main = try draw(image, size: CGSize(width: source.width * scale, height: source.height * scale))
+            if detectsFocus {
+                focus = detectFocus(in: main)
+            }
         }
         let backdrop = style.usesBackdrop ? makeBackdrop(from: main) : nil
         return LoadedImage(cgImage: main, backdrop: backdrop, focus: focus)

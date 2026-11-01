@@ -63,3 +63,23 @@ struct TransitionSettings: Sendable {
         )
     }
 }
+
+/// Elapsed time that only counts while running.
+struct MotionClock {
+    private var accumulated: TimeInterval = 0
+    private var runningSince: Date?
+
+    func elapsed(at date: Date) -> TimeInterval {
+        accumulated + (runningSince.map { max(0, date.timeIntervalSince($0)) } ?? 0)
+    }
+
+    mutating func setRunning(_ running: Bool) {
+        let now = Date()
+        if running, runningSince == nil {
+            runningSince = now
+        } else if !running, let start = runningSince {
+            accumulated += now.timeIntervalSince(start)
+            runningSince = nil
+        }
+    }
+}

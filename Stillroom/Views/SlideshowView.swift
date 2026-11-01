@@ -95,7 +95,6 @@ struct SlideshowView: View {
                         total: controller.total,
                         style: style,
                         controller: controller,
-                        isCurrent: layer.id == layers.last?.id,
                         kenBurnsDuration: kenBurnsDuration,
                         zoomAmount: transitions.zoomAmount
                     )

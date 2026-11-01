@@ -7,7 +7,6 @@ struct SlideContentView: View {
     let total: Int
     let style: VerticalPhotoStyle
     let controller: SlideshowController
-    var isCurrent = true
     /// Seconds of Ken Burns zoom (the slide's time on screen), or nil for none.
     var kenBurnsDuration: Double?
     var zoomAmount = ZoomAmount.defaultAmount
@@ -42,7 +41,7 @@ struct SlideContentView: View {
                         viewSize: size,
                         label: label(for: slide.position + 1),
                         controller: controller,
-                        isCurrent: isCurrent
+                        slideIndex: slide.slideIndex
                     )
                 } else {
                     fitted(photo, label: slide.position + 1, in: size)
@@ -110,22 +109,27 @@ struct SlideContentView: View {
 }
 
 /// A photo scaled to the screen's width that moves vertically over the slide's
-/// display time, ending on the detected face or subject.
+/// display time, gently drifting around the detected face or subject.
 private struct PanningImage: View {
     let image: CGImage
     let focus: CGPoint?
     let viewSize: CGSize
     let label: String
     let controller: SlideshowController
-    let isCurrent: Bool
+    let slideIndex: Int
+    @State private var clock = MotionClock()
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let height = viewSize.width * CGFloat(image.height) / CGFloat(image.width)
-        let path = Self.path(imageHeight: height, viewHeight: viewSize.height, focus: focus)
-        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: reduceMotion || !isCurrent)) { _ in
-            let top = reduceMotion || !isCurrent ? path.end : path.offset(at: progress)
+        let path = VerticalPanPath(
+            imageHeight: height, viewHeight: viewSize.height, focusY: focus.map { Double($0.y) },
+            slideIndex: slideIndex, duration: duration
+        )
+        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: reduceMotion || controller.isPaused)) { context in
+            let progress = duration > 0 ? clock.elapsed(at: context.date) / duration : 1
+            let top = reduceMotion ? path.resting : path.offset(at: progress)
             Image(image, scale: 1, label: Text(label))
                 .resizable()
                 .frame(width: viewSize.width, height: height)
@@ -133,37 +137,13 @@ private struct PanningImage: View {
                 .frame(width: viewSize.width, height: viewSize.height, alignment: .top)
                 .clipped()
         }
-    }
-
-    private var progress: Double {
-        let duration = controller.settings.slideDuration
-        guard duration > .zero else { return 1 }
-        return min(1, max(0, controller.slideElapsed / duration))
-    }
-
-    struct Path {
-        let start: CGFloat
-        let end: CGFloat
-
-        /// Smooth ease-in-out between the two offsets.
-        func offset(at progress: Double) -> CGFloat {
-            let t = CGFloat(progress)
-            let eased = t * t * (3 - 2 * t)
-            return start + (end - start) * eased
+        .onChange(of: controller.isPaused, initial: true) { _, paused in
+            clock.setRunning(!paused)
         }
     }
 
-    /// Starts at the edge farther from the subject and ends with the subject
-    /// centred (clamped). Without a detected subject, assumes it's in the upper
-    /// third, where faces usually are, so the pan doesn't end on someone's feet.
-    static func path(imageHeight: CGFloat, viewHeight: CGFloat, focus: CGPoint?) -> Path {
-        let travel = max(0, imageHeight - viewHeight)
-        guard travel > 0 else { return Path(start: 0, end: 0) }
-        let focusY = focus?.y ?? 0.33
-        let target = min(max(0, focusY * imageHeight - viewHeight / 2), travel)
-        let start: CGFloat = target > travel / 2 ? 0 : travel
-        // Always move a meaningful distance.
-        let end = abs(target - start) < travel * 0.3 ? travel - start : target
-        return Path(start: start, end: end)
+    private var duration: Double {
+        let value = controller.settings.slideDuration.components
+        return Double(value.seconds) + Double(value.attoseconds) / 1e18
     }
 }

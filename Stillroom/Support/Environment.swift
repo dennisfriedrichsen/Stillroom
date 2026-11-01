@@ -81,6 +81,7 @@ enum SettingsKey {
     static let transition = "slideTransition"
     static let fadeSpeed = "fadeSpeed"
     static let kenBurns = "kenBurns"
+    static let zoomAmount = "zoomAmount"
 }
 
 enum SettingsDefault {

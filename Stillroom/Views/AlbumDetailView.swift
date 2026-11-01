@@ -19,6 +19,7 @@ struct AlbumDetailView: View {
     @AppStorage(SettingsKey.transition) private var transition = SlideTransition.crossfade
     @AppStorage(SettingsKey.fadeSpeed) private var fadeSpeed = FadeSpeed.gentle
     @AppStorage(SettingsKey.kenBurns) private var kenBurns = false
+    @AppStorage(SettingsKey.zoomAmount) private var zoomAmount = ZoomAmount.defaultAmount
     @FocusState private var playFocused: Bool
 
     private var current: AlbumSummary {
@@ -66,7 +67,10 @@ struct AlbumDetailView: View {
                         "\($0.label) (\($0.seconds.formatted()) s)"
                     }
                     Toggle("Ken Burns Effect", isOn: $kenBurns)
-
+                    ChoicePicker("Zoom Amount", selection: $zoomAmount, options: ZoomAmount.allCases) {
+                        "\($0.rawValue)%"
+                    }
+                    .disabled(!kenBurns)
                 }
                 Section {
                     ChoicePicker("Vertical Photos", selection: $verticalStyle, options: VerticalPhotoStyle.allCases) {

@@ -21,7 +21,9 @@ struct SlideshowView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var controlsVisible = false
     /// Slides being drawn: normally one; two or more during a transition.
-    @State private var layers: [SlideLayer] = []
+    @State private var transitionLayers = TransitionLayers<DisplayedSlide>()
+
+    private var layers: [TransitionLayers<DisplayedSlide>.Layer] { transitionLayers.layers }
     /// The slide a remote press moved to; when it appears, it slides in from that side.
     @State private var pendingPush: PendingPush?
     @State private var hideControlsTask: Task<Void, Never>?
@@ -89,12 +91,13 @@ struct SlideshowView: View {
                 Color.black
                 ForEach(layers) { layer in
                     SlideContentView(
-                        slide: layer.slide,
+                        slide: layer.content,
                         total: controller.total,
                         style: style,
                         controller: controller,
                         isCurrent: layer.id == layers.last?.id,
-                        kenBurnsDuration: kenBurnsDuration
+                        kenBurnsDuration: kenBurnsDuration,
+                        zoomAmount: transitions.zoomAmount
                     )
                     .opacity(layer.opacity)
                     .offset(x: layer.offset * geometry.size.width)
@@ -141,16 +144,16 @@ struct SlideshowView: View {
     /// transition removed the old slide immediately, flashing black between slides.
     private func transitionToDisplayedSlide() {
         guard let slide = controller.displayed else {
-            layers = []
+            transitionLayers.removeAll()
             pendingPush = nil
             return
         }
         let key = slideKey
-        guard layers.last?.id != key else { return }
+        guard layers.last?.key != key else { return }
         let push = pendingPush.flatMap { $0.cycle == slide.cycle && $0.position == slide.position ? $0.direction : nil }
         pendingPush = nil
         guard !layers.isEmpty else {
-            layers = [SlideLayer(id: key, slide: slide, opacity: 1)]
+            transitionLayers.append(slide, key: key, opacity: 1)
             return
         }
         if let push, !reduceMotion {
@@ -165,29 +168,27 @@ struct SlideshowView: View {
 
     /// Fades the new slide in over the old one, which stays fully visible underneath.
     private func crossfade(to slide: DisplayedSlide, key: String, duration: Double) {
-        layers.append(SlideLayer(id: key, slide: slide, opacity: 0))
+        let id = transitionLayers.append(slide, key: key, opacity: 0)
         withAnimation(.easeInOut(duration: duration)) {
-            setOpacity(1, of: key)
+            transitionLayers.setOpacity(1, of: id)
         } completion: {
-            dropLayers(before: key)
+            transitionLayers.complete(id)
         }
     }
 
     /// Fades the old slide out to black, then the new one in, each over half the fade time.
     private func fadeThroughBlack(to slide: DisplayedSlide, key: String) {
         let half = transitions.fadeSpeed.seconds / 2
-        layers.append(SlideLayer(id: key, slide: slide, opacity: 0))
+        let id = transitionLayers.append(slide, key: key, opacity: 0)
         withAnimation(.easeIn(duration: half)) {
-            for index in layers.indices where layers[index].id != key {
-                layers[index].opacity = 0
-            }
+            transitionLayers.fadeOut(before: id)
         } completion: {
             // A newer slide may have started its own transition meanwhile.
-            guard layers.last?.id == key else { return }
+            guard transitionLayers.isCurrent(id) else { return }
             withAnimation(.easeOut(duration: half)) {
-                setOpacity(1, of: key)
+                transitionLayers.setOpacity(1, of: id)
             } completion: {
-                dropLayers(before: key)
+                transitionLayers.complete(id)
             }
         }
     }
@@ -195,30 +196,12 @@ struct SlideshowView: View {
     /// Slides the new slide in from the side the user pressed, pushing the old one out.
     private func pushIn(_ slide: DisplayedSlide, key: String, from direction: PushDirection) {
         let side: Double = direction == .forward ? 1 : -1
-        layers.append(SlideLayer(id: key, slide: slide, opacity: 1, offset: side))
+        let id = transitionLayers.append(slide, key: key, opacity: 1, offset: side)
         withAnimation(.easeInOut(duration: TransitionSettings.pushSeconds)) {
-            for index in layers.indices {
-                if layers[index].id == key {
-                    layers[index].offset = 0
-                } else {
-                    layers[index].offset -= side
-                }
-            }
+            transitionLayers.pushIn(id, from: side)
         } completion: {
-            dropLayers(before: key)
+            transitionLayers.complete(id)
         }
-    }
-
-    private func setOpacity(_ opacity: Double, of key: String) {
-        if let index = layers.firstIndex(where: { $0.id == key }) {
-            layers[index].opacity = opacity
-        }
-    }
-
-    /// Drops every slide but `key`, unless a newer slide is already on its way in.
-    private func dropLayers(before key: String) {
-        guard layers.last?.id == key else { return }
-        layers.removeAll { $0.id != key }
     }
 
     // MARK: Status overlays (non-interactive)
@@ -465,14 +448,6 @@ private extension View {
             .background(.black.opacity(0.55), in: Capsule())
             .foregroundStyle(.white)
     }
-}
-
-private struct SlideLayer: Identifiable {
-    let id: String
-    let slide: DisplayedSlide
-    var opacity: Double
-    /// Horizontal position as a fraction of the screen width (0 is on screen).
-    var offset: Double = 0
 }
 
 private enum PushDirection {

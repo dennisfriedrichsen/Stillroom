@@ -7,19 +7,14 @@ struct SlideContentView: View {
     let total: Int
     let style: VerticalPhotoStyle
     let controller: SlideshowController
-    /// False for the outgoing slide during a crossfade; it holds its final pan position.
     var isCurrent = true
     /// Seconds of Ken Burns zoom (the slide's time on screen), or nil for none.
     var kenBurnsDuration: Double?
+    var zoomAmount = ZoomAmount.defaultAmount
 
     var body: some View {
         GeometryReader { geometry in
-            if let effect = kenBurns(in: geometry.size) {
-                content(in: geometry.size)
-                    .modifier(effect)
-            } else {
-                content(in: geometry.size)
-            }
+            content(in: geometry.size)
         }
         .ignoresSafeArea()
     }
@@ -50,31 +45,35 @@ struct SlideContentView: View {
                         isCurrent: isCurrent
                     )
                 } else {
-                    fitted(photo, label: slide.position + 1)
+                    fitted(photo, label: slide.position + 1, in: size)
                 }
             }
         }
     }
 
-    /// Single photos zoom slowly; panning photos already move, and pairs would lose their edges.
-    private func kenBurns(in size: CGSize) -> KenBurnsEffect? {
-        guard let kenBurnsDuration, slide.photos.count == 1, let photo = slide.photos.first else { return nil }
-        if style == .slowPan, let cgImage = photo.image.cgImage, pans(cgImage, in: size) { return nil }
-        return KenBurnsEffect(
-            zoomsIn: slide.slideIndex.isMultiple(of: 2),
-            anchor: KenBurnsEffect.anchor(focus: photo.image.focus, slideIndex: slide.slideIndex),
-            duration: kenBurnsDuration,
-            isPaused: controller.isPaused
-        )
-    }
-
     @ViewBuilder
-    private func fitted(_ photo: DisplayedPhoto, label position: Int) -> some View {
+    private func fitted(_ photo: DisplayedPhoto, label position: Int, in size: CGSize) -> some View {
         if let cgImage = photo.image.cgImage {
-            Image(cgImage, scale: 1, label: Text(label(for: position)))
+            let fit = min(size.width / CGFloat(cgImage.width), size.height / CGFloat(cgImage.height))
+            let fittedSize = CGSize(width: CGFloat(cgImage.width) * fit, height: CGFloat(cgImage.height) * fit)
+            let image = Image(cgImage, scale: 1, label: Text(label(for: position)))
                 .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(width: fittedSize.width, height: fittedSize.height)
+            if let kenBurnsDuration {
+                KenBurnsImage(
+                    image: cgImage,
+                    motion: PhotoMotion(slideIndex: slide.slideIndex,
+                                        focusX: photo.image.focus.map { Double($0.x) },
+                                        focusY: photo.image.focus.map { Double($0.y) },
+                                        zoomAmount: zoomAmount),
+                    duration: kenBurnsDuration,
+                    isPaused: controller.isPaused
+                )
+                .frame(width: fittedSize.width, height: fittedSize.height)
+                .accessibilityLabel(label(for: position))
+            } else {
+                image
+            }
         }
     }
 

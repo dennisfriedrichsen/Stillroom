@@ -50,7 +50,7 @@ Stillroom has no accounts and no server of its own. Photos are read through Appl
 | Style | What you see | Cost |
 |---|---|---|
 | **Blurred Background** | Whole photo, with a blurred, darkened copy filling the sides | Lowest: one extra 64‑pixel image per photo |
-| **Slow Pan** *(default)* | Vertical photos fill the width and slowly pan, ending on the face or subject found by Vision (or the upper third if none is found). The pan pauses with Play/Pause and is turned off by Reduce Motion | Highest: pan images are up to twice as tall as they are wide (~30 MB each at 1080p), so fewer are buffered (2 ahead, 1 behind), plus Vision detection |
+| **Slow Pan** *(default)* | Vertical photos fill the width and gently drift around the face or subject found by Vision (or the upper third if none is found). Direction alternates with slide position. Travel is limited to 18% of screen height, with a speed cap for short slides. The pan pauses with Play/Pause and is turned off by Reduce Motion | Highest: pan images are up to twice as tall as they are wide (~30 MB each at 1080p), so fewer are buffered (2 ahead, 1 behind), plus Vision detection |
 | **Smart Crop** | Vertical photos fill the screen, cropped around the face or subject (about two thirds of the height is cut) | Moderate: Vision detection; the stored image is screen-sized |
 | **Side by Side** | Two vertical photos that are next to each other in the playback order share a slide ("Photos 127–128 of 600") | Two downloads per slide; buffers 4 photos ahead |
 | **Black Bars** | Whole photo, black bars | Lowest |
@@ -280,7 +280,7 @@ xcrun devicectl device copy from --device "Living Room (3)" --domain-type appDat
 
 ## Tests
 
-`StillroomCore/Tests` — 67 tests in 11 suites (Swift Testing) with a `FakeImageProvider` whose requests stay pending until the test completes, fails, or cancels them, and a `ManualScheduler` that makes time deterministic.
+`StillroomCore/Tests` — 70 tests in 12 suites (Swift Testing) with a `FakeImageProvider` whose requests stay pending until the test completes, fails, or cancels them, and a `ManualScheduler` that makes time deterministic.
 
 | Requirement | Tests |
 |---|---|
@@ -302,6 +302,8 @@ xcrun devicectl device copy from --device "Living Room (3)" --domain-type appDat
 | Side-by-side pairs and pan timing | `greedyPairs`, `stableBackNavigation`, `pairedShuffleIsPermutation`, `windowsAroundPair`, `pairWaitsForBoth`, `skipHalfOfPair`, `slideElapsed` |
 
 Whole-photo motion tests cover varied zoom/pan directions, endpoint clamping, and visible photo area matching each selectable zoom limit even when the fitted photo exactly fills the screen.
+
+Vertical pan tests cover direction variation, speed limits, framing bounds, and elapsed-time clamping.
 
 Transition layer tests cover rapid Next/Previous, revisiting a slide during crossfade or Fade Through Black, stale animation completions, and resetting during a transition. They verify the state used by SwiftUI; animation timing and visual smoothness still require simulator or device checks.
 

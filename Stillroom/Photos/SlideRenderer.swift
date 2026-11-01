@@ -38,7 +38,7 @@ enum VerticalPhotoStyle: String, CaseIterable, Identifiable, Sendable {
         case .blurredBackground:
             "The whole photo, with a blurred copy filling the sides."
         case .slowPan:
-            "Fills the screen and slowly pans to the face or subject. Uses the most memory."
+            "Fills the screen with a gentle drift around the face or subject, alternating direction. Uses the most memory."
         case .smartCrop:
             "Fills the screen, cropped around the face or subject. Part of the photo is cut off."
         case .sideBySide:

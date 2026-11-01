@@ -251,7 +251,7 @@ Swift concurrency runs `async` code on a thread pool with one thread per CPU cor
 
 - **Slides:** `PlaybackSequence` plays *slides*. In Side by Side mode, adjacent vertical photos (from PhotoKit's stored dimensions, available without downloading) are paired greedily per cycle, so Previous always returns the same pairs. Shuffle permutes photos first, then pairs; every photo still appears exactly once per cycle. A pair is shown only when both photos are ready. If one fails after retries, the slideshow stalls; **Skip Photo** records that photo as skipped and shows the other one alone.
 - **Rendering:** `SlideRenderer` prepares each photo for the chosen style off the main thread: fit to screen, render at screen width for panning (max 2560 px wide), or crop to the screen's shape around the detected subject. Subject detection uses Vision face rectangles, falling back to attention-based saliency, on a 512‑pixel copy. The blurred background is a 64‑pixel Core Image blur.
-- **Transitions:** slides on screen are layers in `SlideshowView`. Crossfade fades the next slide in over the current one, which stays fully visible underneath until the fade completes, so slides never flash black. Fade Through Black fades the old layers out, then the new one in. A remote press records the slide it moved to (cycle and position), and only that slide pushes in from the side, so a press that didn't move (Previous on the first photo) never affects a later slide. Old layers are dropped only when the newest slide is fully in, so a transition can be interrupted by the next one at any point. Each slide’s Ken Burns zoom and pan use a Core Animation transform between fixed endpoints, avoiding per-frame SwiftUI updates. The animation pauses with playback, respects Reduce Motion, and continues on the outgoing layer while it fades out.
+- **Transitions:** slides on screen are layers in `SlideshowView`. Crossfade fades the next slide in over the current one, which stays fully visible underneath until the fade completes, so slides never flash black. Fade Through Black fades the old layers out, then the new one in. A remote press records the slide it moved to (cycle and position), and only that slide pushes in from the side, so a press that didn't move (Previous on the first photo) never affects a later slide. Old layers are dropped only when the newest slide is fully in, so a transition can be interrupted by the next one at any point. Each presentation of a slide has a unique layer identity, so returning to a slide during a transition cannot reuse an outgoing layer or its completion callbacks. Each slide’s Ken Burns zoom and pan use a Core Animation transform between fixed endpoints, avoiding per-frame SwiftUI updates. The animation pauses with playback, respects Reduce Motion, and continues on the outgoing layer while it fades out.
 - **Simulator note:** Vision's saliency request fails in the simulator ("Failed to create espresso context"), so there panning and cropping fall back to the upper-third framing. Detection must be checked on the Apple TV.
 
 ### Ordering
@@ -280,7 +280,7 @@ xcrun devicectl device copy from --device "Living Room (3)" --domain-type appDat
 
 ## Tests
 
-`StillroomCore/Tests` — 62 tests in 10 suites (Swift Testing) with a `FakeImageProvider` whose requests stay pending until the test completes, fails, or cancels them, and a `ManualScheduler` that makes time deterministic.
+`StillroomCore/Tests` — 67 tests in 11 suites (Swift Testing) with a `FakeImageProvider` whose requests stay pending until the test completes, fails, or cancels them, and a `ManualScheduler` that makes time deterministic.
 
 | Requirement | Tests |
 |---|---|
@@ -302,6 +302,8 @@ xcrun devicectl device copy from --device "Living Room (3)" --domain-type appDat
 | Side-by-side pairs and pan timing | `greedyPairs`, `stableBackNavigation`, `pairedShuffleIsPermutation`, `windowsAroundPair`, `pairWaitsForBoth`, `skipHalfOfPair`, `slideElapsed` |
 
 Whole-photo motion tests cover varied zoom/pan directions, endpoint clamping, and visible photo area matching each selectable zoom limit even when the fitted photo exactly fills the screen.
+
+Transition layer tests cover rapid Next/Previous, revisiting a slide during crossfade or Fade Through Black, stale animation completions, and resetting during a transition. They verify the state used by SwiftUI; animation timing and visual smoothness still require simulator or device checks.
 
 The PhotoKit layer (`PhotoKitRequest`, `PhotoKitImageProvider`, `PhotoLibraryModel`, `AlbumFetcher`) has no automated tests: the simulator has no iCloud library to test it against. It is covered by the device checklist.
 

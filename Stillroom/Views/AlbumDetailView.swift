@@ -4,6 +4,8 @@ import SwiftUI
 /// Album details, the Play button, and the slideshow settings (shared by every album).
 struct AlbumDetailView: View {
     let album: AlbumSummary
+    var playbackResume: ResumePoint?
+    var onPlay: ((ResumePoint?) -> Void)?
 
     @Environment(PhotoLibraryModel.self) private var library
     @Environment(RecentPlaybackStore.self) private var recents
@@ -25,7 +27,7 @@ struct AlbumDetailView: View {
     }
 
     private var resume: ResumePoint? {
-        recents.entry(for: current.id)?.resume
+        playbackResume ?? recents.entry(for: current.id)?.resume
     }
 
     var body: some View {
@@ -69,15 +71,11 @@ struct AlbumDetailView: View {
                         "\($0.rawValue)%"
                     }
                     .disabled(!kenBurns)
-                } footer: {
-                    Text(transitionExplanation)
                 }
                 Section {
                     ChoicePicker("Vertical Photos", selection: $verticalStyle, options: VerticalPhotoStyle.allCases) {
                         $0.label
                     }
-                } footer: {
-                    Text(verticalStyle.explanation)
                 }
                 Section {
                     NavigationLink("Troubleshooting") {
@@ -129,16 +127,12 @@ struct AlbumDetailView: View {
         }
     }
 
-    private var transitionExplanation: String {
-        var text = kenBurns
-            ? "Fitted photos gently zoom and pan. Replaces Slow Pan and Smart Crop; pairs stay still."
-            : "Ken Burns gently zooms and pans fitted photos."
-        text += " Pressing ◀︎ or ▶︎ on the remote slides straight to the previous or next photo."
-        return text
-    }
-
     private func play(resume: ResumePoint?) {
-        router.request = SlideshowRequest(album: current, resume: resume)
+        if let onPlay {
+            onPlay(resume)
+        } else {
+            router.request = SlideshowRequest(album: current, resume: resume)
+        }
     }
 }
 

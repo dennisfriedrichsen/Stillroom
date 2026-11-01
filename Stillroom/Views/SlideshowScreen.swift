@@ -12,6 +12,7 @@ struct SlideshowScreen: View {
     var transitions = TransitionSettings()
     /// Where to pick up a slideshow that was left part way through.
     var resume: ResumePoint?
+    var onSettings: ((ResumePoint?) -> Void)?
 
     @Environment(PhotoLibraryModel.self) private var library
     @Environment(RecentPlaybackStore.self) private var recents
@@ -36,7 +37,8 @@ struct SlideshowScreen: View {
                     transitions: transitions,
                     isNetworkAvailable: network.isAvailable,
                     onExit: exit,
-                    onRestart: restart
+                    onRestart: restart,
+                    onSettings: settingsAction
                 )
             } else if let preparationError {
                 StatusMessageView(systemImage: "exclamationmark.triangle", title: "Can’t Start", message: preparationError) {
@@ -180,6 +182,23 @@ struct SlideshowScreen: View {
         recents.record(albumID: album.id, resume: point)
     }
 
+    private var settingsAction: (() -> Void)? {
+        guard onSettings != nil else { return nil }
+        return { openSettings() }
+    }
+
+    private func openSettings() {
+        guard let controller else { return }
+        controller.pause()
+        recordProgress()
+        let point = controller.currentTargetID.map {
+            ResumePoint(assetID: $0.rawValue, position: controller.targetPosition,
+                        total: controller.total, albumOrder: order,
+                        shuffled: controller.settings.order == .shuffled, seed: controller.seed)
+        }
+        onSettings?(point)
+    }
+
     private func exit() {
         recordProgress()
         controller?.stop()
@@ -205,19 +224,43 @@ struct SlideshowLaunch: View {
     @AppStorage(SettingsKey.kenBurns) private var kenBurns = false
     @AppStorage(SettingsKey.zoomAmount) private var zoomAmount = ZoomAmount.defaultAmount
 
+    @State private var activeResume: ResumePoint?
+    @State private var settingsVisible = false
+
+    init(album: AlbumSummary, resume: ResumePoint?) {
+        self.album = album
+        self.resume = resume
+        _activeResume = State(initialValue: resume)
+    }
+
     var body: some View {
-        SlideshowScreen(
-            album: album,
-            order: resume?.albumOrder ?? albumOrder,
-            settings: SlideshowSettings(
-                slideDuration: .seconds(slideSeconds),
-                order: (resume?.shuffled ?? shuffle) ? .shuffled : .sequential,
-                loops: loop
-            ),
-            style: verticalStyle,
-            transitions: TransitionSettings(transition: transition, fadeSpeed: fadeSpeed, kenBurns: kenBurns, zoomAmount: zoomAmount),
-            resume: resume
-        )
+        if settingsVisible {
+            NavigationStack {
+                AlbumDetailView(album: album, playbackResume: activeResume) { point in
+                    activeResume = point
+                    settingsVisible = false
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color.black.ignoresSafeArea())
+        } else {
+            SlideshowScreen(
+                album: album,
+                order: activeResume?.albumOrder ?? albumOrder,
+                settings: SlideshowSettings(
+                    slideDuration: .seconds(slideSeconds),
+                    order: (activeResume?.shuffled ?? shuffle) ? .shuffled : .sequential,
+                    loops: loop
+                ),
+                style: verticalStyle,
+                transitions: TransitionSettings(transition: transition, fadeSpeed: fadeSpeed, kenBurns: kenBurns, zoomAmount: zoomAmount),
+                resume: activeResume,
+                onSettings: { point in
+                    activeResume = point
+                    settingsVisible = true
+                }
+            )
+        }
     }
 }
 
